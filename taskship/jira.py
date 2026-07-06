@@ -31,6 +31,52 @@ class RateLimitExceeded(JiraError):
     """Retry ceiling hit for a throttled/transient request (REQ-TS-009)."""
 
 
+def _retry_after(resp: httpx.Response, attempt: int, backoff_base: float) -> float:
+    """Delay before the next attempt: honour Retry-After, else exponential."""
+    retry_after = resp.headers.get("Retry-After")
+    if retry_after is not None:
+        try:
+            return float(retry_after)
+        except ValueError:
+            pass
+    return backoff_base * (2 ** (attempt - 1))
+
+
+def request_with_retry(
+    send: Callable[[], httpx.Response],
+    *,
+    describe: str,
+    max_attempts: int,
+    backoff_base: float,
+    sleep: Callable[[float], None],
+) -> httpx.Response:
+    """Call ``send`` with bounded, rate-limit-aware retry.
+
+    @implements REQ-TS-009
+
+    Retries transient statuses (429 + 5xx). A 429 honours ``Retry-After``; other
+    retryable statuses back off exponentially. A non-retryable ``>=400`` fails
+    immediately with :class:`JiraError`. After ``max_attempts`` transient
+    failures the call raises :class:`RateLimitExceeded` naming the last status,
+    so the sync stops cleanly rather than hanging.
+    """
+    last_status: Optional[int] = None
+    for attempt in range(1, max_attempts + 1):
+        resp = send()
+        if resp.status_code not in _RETRYABLE:
+            if resp.status_code >= 400:
+                raise JiraError(f"{describe} failed: {resp.status_code} {resp.text}")
+            return resp
+        last_status = resp.status_code
+        if attempt == max_attempts:
+            break
+        sleep(_retry_after(resp, attempt, backoff_base))
+    raise RateLimitExceeded(
+        f"{describe} still failing after {max_attempts} attempts "
+        f"(last status {last_status})"
+    )
+
+
 class JiraClient:
     """Idempotent-friendly Jira Cloud client used by :func:`reconcile`."""
 
@@ -59,40 +105,14 @@ class JiraClient:
     # --- REQ-TS-009: rate-limit-aware request with bounded backoff ---------
 
     def _request(self, method: str, path: str, **kwargs) -> httpx.Response:
-        """Issue a request, retrying transient failures with backoff.
-
-        @implements REQ-TS-009
-
-        A 429 honours ``Retry-After`` when present; other retryable statuses use
-        exponential backoff. After ``max_attempts`` the call raises
-        :class:`RateLimitExceeded` naming the last status.
-        """
-        last_status: Optional[int] = None
-        for attempt in range(1, self.max_attempts + 1):
-            resp = self._client.request(method, path, **kwargs)
-            if resp.status_code not in _RETRYABLE:
-                if resp.status_code >= 400:
-                    raise JiraError(
-                        f"{method} {path} failed: {resp.status_code} {resp.text}"
-                    )
-                return resp
-            last_status = resp.status_code
-            if attempt == self.max_attempts:
-                break
-            self._sleep(self._retry_delay(resp, attempt))
-        raise RateLimitExceeded(
-            f"{method} {path} still failing after {self.max_attempts} attempts "
-            f"(last status {last_status})"
+        """Issue a request via the shared rate-limit-aware retry policy."""
+        return request_with_retry(
+            lambda: self._client.request(method, path, **kwargs),
+            describe=f"{method} {path}",
+            max_attempts=self.max_attempts,
+            backoff_base=self.backoff_base,
+            sleep=self._sleep,
         )
-
-    def _retry_delay(self, resp: httpx.Response, attempt: int) -> float:
-        retry_after = resp.headers.get("Retry-After")
-        if retry_after is not None:
-            try:
-                return float(retry_after)
-            except ValueError:
-                pass
-        return self.backoff_base * (2 ** (attempt - 1))
 
     # --- REQ-TS-005: create / update --------------------------------------
 
