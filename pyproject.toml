@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "taskship"
+version = "0.0.0"
+description = "Plan-as-code planning layer over Jira"
+readme = "specs/taskship.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2",
+    "ruamel.yaml>=0.18",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["taskship"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
