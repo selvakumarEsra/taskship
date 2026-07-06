@@ -1,0 +1,112 @@
+"""REQ-TS-004 — task-type templates render ADF and refuse incomplete specs.
+
+A1: biz-spec renders problem/user-story/acceptance/out-of-scope/open-questions.
+A2: tech-spec/perf refuses without baseline+target; renders the metric when present.
+A3: devops renders infra/pipeline/rollback/runbook sections.
+A4: rendered output is structurally-valid ADF (version 1 doc with valid nodes).
+A5: a forked template directory renders in place of the built-ins.
+"""
+import pytest
+
+from taskship.model import Task, Metrics
+from taskship.templates import render_adf, render_labels, TemplateError
+
+
+def _headings(adf):
+    return [
+        "".join(c["text"] for c in node["content"])
+        for node in adf["content"]
+        if node["type"] == "heading"
+    ]
+
+
+def _is_valid_adf(adf):
+    if adf.get("type") != "doc" or adf.get("version") != 1:
+        return False
+    if not isinstance(adf.get("content"), list):
+        return False
+    for node in adf["content"]:
+        if "type" not in node:
+            return False
+        # text nodes inside blocks must carry a string
+        for child in node.get("content", []):
+            if child["type"] == "text" and not isinstance(child.get("text"), str):
+                return False
+    return True
+
+
+def test_a1_biz_spec_sections_present():
+    task = Task(id="b1", title="Define guest checkout requirements", type="biz-spec")
+    adf = render_adf(task)
+    headings = " ".join(_headings(adf)).lower()
+    assert "problem" in headings
+    assert "user story" in headings
+    assert "acceptance" in headings
+    assert "out-of-scope" in headings or "out of scope" in headings
+    assert "open question" in headings
+
+
+def test_a2_tech_spec_perf_refuses_without_metrics():
+    # The model validator (REQ-TS-001 A3) normally blocks this at construction;
+    # bypass it with model_construct to prove the TEMPLATE layer also refuses
+    # (defense in depth — e.g. a Task built programmatically via the MCP path).
+    task = Task.model_construct(
+        id="p1", title="Payment auth p95", type="tech-spec", subtype="perf",
+        metrics=None, fields={},
+    )
+    with pytest.raises(TemplateError) as exc:
+        render_adf(task)
+    assert "p1" in str(exc.value)  # error names the task
+
+
+def test_a2_tech_spec_perf_renders_metric_when_present():
+    task = Task(
+        id="p1", title="Payment auth p95", type="tech-spec", subtype="perf",
+        metrics=Metrics(baseline="480ms", target="200ms"),
+    )
+    adf = render_adf(task)
+    text = str(adf)
+    assert "480ms" in text and "200ms" in text
+
+
+def test_a3_devops_sections_present():
+    task = Task(id="d1", title="CI/CD for checkout-service", type="devops")
+    headings = " ".join(_headings(render_adf(task))).lower()
+    assert "infra" in headings
+    assert "pipeline" in headings
+    assert "rollback" in headings
+    assert "runbook" in headings
+
+
+def test_a4_rendered_output_is_valid_adf():
+    for task in [
+        Task(id="b", title="B", type="biz-spec"),
+        Task(id="d", title="D", type="devops"),
+        Task(id="p", title="P", type="tech-spec", subtype="perf",
+             metrics=Metrics(baseline="1", target="2")),
+    ]:
+        assert _is_valid_adf(render_adf(task)), task.type
+
+
+def test_a4_labels_include_type_and_subtype():
+    task = Task(id="p", title="P", type="tech-spec", subtype="perf",
+                metrics=Metrics(baseline="1", target="2"))
+    labels = render_labels(task)
+    assert "taskship:type:tech-spec" in labels
+    assert "taskship:subtype:perf" in labels
+
+
+def test_a5_forked_template_dir_overrides_builtin(tmp_path):
+    forked = tmp_path / "templates"
+    forked.mkdir()
+    (forked / "biz-spec.yaml").write_text(
+        "type: biz-spec\n"
+        "version: 99\n"
+        "labels: ['taskship:type:biz-spec']\n"
+        "sections:\n"
+        "  - heading: CUSTOM FORKED SECTION\n"
+        "    field: whatever\n"
+    )
+    task = Task(id="b1", title="T", type="biz-spec")
+    adf = render_adf(task, templates_dir=forked)
+    assert "CUSTOM FORKED SECTION" in " ".join(_headings(adf))

@@ -1,0 +1,11 @@
+# Docs template (REQ-TS-004) — lightweight; optionally auto-attached per story.
+type: docs
+version: 1
+labels:
+  - "taskship:type:docs"
+required: []
+sections:
+  - heading: What to document
+    field: scope
+  - heading: Audience
+    field: audience

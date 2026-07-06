@@ -1,0 +1,21 @@
+# Business specification template (REQ-TS-004).
+# Fork this file into your own templates/ directory to match your team's
+# definition-of-ready without touching TaskShip's core.
+type: biz-spec
+version: 1
+labels:
+  - "taskship:type:biz-spec"
+# Keys under task.fields that MUST be present, or the template refuses to render.
+required: []
+sections:
+  - heading: Problem statement
+    field: problem
+  - heading: User story
+    field: user_story
+    placeholder: "As a … I want … so that …"
+  - heading: Acceptance criteria
+    field: acceptance_criteria
+  - heading: Out-of-scope
+    field: out_of_scope
+  - heading: Open questions
+    field: open_questions

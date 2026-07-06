@@ -1,0 +1,11 @@
+# QA template (REQ-TS-004) — lightweight; optionally auto-attached per story.
+type: qa
+version: 1
+labels:
+  - "taskship:type:qa"
+required: []
+sections:
+  - heading: Test scope
+    field: scope
+  - heading: Test cases
+    field: cases

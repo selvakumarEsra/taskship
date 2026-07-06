@@ -81,6 +81,10 @@ class Task(_Node):
     type: str
     subtype: Optional[str] = None
     metrics: Optional[Metrics] = None
+    # Free-form content the task's type template renders into its ADF sections
+    # (e.g. ``problem``, ``user_story``, ``rollback``). Keys a template marks
+    # ``required`` must be present here or the template refuses to render.
+    fields: dict[str, object] = {}
 
     @model_validator(mode="after")
     def _require_metrics_for_perf(self) -> "Task":
