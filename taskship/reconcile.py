@@ -32,18 +32,39 @@ class JiraClient(Protocol):
 
 
 @dataclass
+class NodeDecision:
+    """One node's reconciliation outcome, for review and dry-run output."""
+
+    external_id: str
+    action: str   # "create" | "update" | "skip" | "orphan"
+    reason: str
+
+
+@dataclass
 class SyncReport:
     created: list[str] = field(default_factory=list)
     updated: list[str] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
     orphaned: list[str] = field(default_factory=list)
+    decisions: list[NodeDecision] = field(default_factory=list)
+    dry_run: bool = False
+
+    def _decide(self, external_id: str, action: str, reason: str) -> None:
+        self.decisions.append(NodeDecision(external_id, action, reason))
+        getattr(self, {"create": "created", "update": "updated",
+                       "skip": "skipped", "orphan": "orphaned"}[action]).append(external_id)
 
     def as_dict(self) -> dict:
         return {
+            "dry_run": self.dry_run,
             "created": list(self.created),
             "updated": list(self.updated),
             "skipped": list(self.skipped),
             "orphaned": list(self.orphaned),
+            "decisions": [
+                {"id": d.external_id, "action": d.action, "reason": d.reason}
+                for d in self.decisions
+            ],
         }
 
 
@@ -66,7 +87,7 @@ def reconcile(
 
     @implements REQ-TS-005
     """
-    report = SyncReport()
+    report = SyncReport(dry_run=dry_run)
     payloads = build_payloads(plan, templates_dir)
 
     for payload in payloads:
@@ -77,7 +98,7 @@ def reconcile(
                 state.key(payload.parent_external_id)
                 if payload.parent_external_id else None
             )
-            report.created.append(payload.external_id)
+            report._decide(payload.external_id, "create", "no existing Jira issue")
             if not dry_run:
                 key = client.create(payload, parent_key)
                 state.record(payload.external_id, key, payload.content_hash,
@@ -85,15 +106,19 @@ def reconcile(
             continue
 
         entry = state.entry(payload.external_id)
-        if entry is None or entry.hash != payload.content_hash:
-            report.updated.append(payload.external_id)
-            if not dry_run:
-                changed = _changed_fields(payload, entry)
-                client.update(key, changed)
-                state.record(payload.external_id, key, payload.content_hash,
-                             payload.field_hashes)
+        if entry is None:
+            report._decide(payload.external_id, "update",
+                           "recovered via watermark; re-asserting desired state")
+        elif entry.hash != payload.content_hash:
+            report._decide(payload.external_id, "update", "content changed")
         else:
-            report.skipped.append(payload.external_id)
+            report._decide(payload.external_id, "skip", "unchanged")
+            continue
+
+        if not dry_run:
+            client.update(key, _changed_fields(payload, entry))
+            state.record(payload.external_id, key, payload.content_hash,
+                         payload.field_hashes)
 
     if not dry_run:
         state.save()
