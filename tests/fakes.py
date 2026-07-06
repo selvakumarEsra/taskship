@@ -12,6 +12,7 @@ class FakeJira:
         self.update_calls = []    # (key, changed_fields)
         self.label_calls = []     # (key, label)
         self.external_index = {}  # external_id -> key (simulates label search)
+        self.board = {}           # key -> live {status, assignee, story_points}
 
     def create(self, payload, parent_key):
         self._counter += 1
@@ -34,3 +35,6 @@ class FakeJira:
 
     def search_by_external_id(self, external_id):
         return self.external_index.get(external_id)
+
+    def get_board_status(self, keys):
+        return {k: self.board[k] for k in keys if k in self.board}

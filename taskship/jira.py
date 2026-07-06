@@ -164,3 +164,37 @@ class JiraClient:
         )
         issues = resp.json().get("issues", [])
         return issues[0]["key"] if issues else None
+
+    # --- REQ-TS-010: reverse sync — live board state ----------------------
+
+    def get_board_status(
+        self, keys: list[str], story_points_field: Optional[str] = None
+    ) -> dict[str, dict]:
+        """Read status/assignee/story points for the given issue keys.
+
+        @implements REQ-TS-010
+
+        ``story_points_field`` is the instance-specific custom field id (Jira
+        Cloud has no standard one); omitted → story points report ``None``.
+        """
+        if not keys:
+            return {}
+        fields = ["status", "assignee"]
+        if story_points_field:
+            fields.append(story_points_field)
+        key_list = ", ".join(f'"{k}"' for k in keys)
+        resp = self._request(
+            "POST", "/rest/api/3/search",
+            json={"jql": f"key in ({key_list})", "maxResults": len(keys),
+                  "fields": fields},
+        )
+        out: dict[str, dict] = {}
+        for issue in resp.json().get("issues", []):
+            f = issue.get("fields", {})
+            status = (f.get("status") or {}).get("name")
+            assignee = (f.get("assignee") or {}).get("displayName")
+            sp = f.get(story_points_field) if story_points_field else None
+            out[issue["key"]] = {
+                "status": status, "assignee": assignee, "story_points": sp
+            }
+        return out
