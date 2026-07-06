@@ -1,0 +1,17 @@
+# DevOps template (REQ-TS-004). DevOps work lives in its own story kind so it
+# stays visible and separately trackable.
+type: devops
+version: 1
+labels:
+  - "taskship:type:devops"
+required: []
+sections:
+  - heading: Infra changes
+    field: infra_changes
+  - heading: Pipeline stages
+    field: pipeline_stages
+  - heading: Rollback plan
+    field: rollback
+  - heading: Runbook link
+    field: runbook
+    placeholder: "https://…"

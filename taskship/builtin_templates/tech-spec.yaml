@@ -1,0 +1,19 @@
+# Technical specification template (REQ-TS-004).
+# Subtypes: perf / optimization / security / scalability. A perf subtype MUST
+# carry a measurable baseline + target metric or the template refuses to render.
+type: tech-spec
+version: 1
+labels:
+  - "taskship:type:tech-spec"
+required: []
+# Subtypes whose task MUST define metrics{baseline,target} to render.
+requires_metrics: [perf]
+sections:
+  - heading: Performance target
+    metrics: true          # renders task.metrics (baseline → target)
+  - heading: Proposed approach
+    field: approach
+  - heading: Risks
+    field: risks
+  - heading: Validation method
+    field: validation

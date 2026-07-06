@@ -1,0 +1,22 @@
+# TaskShip plan — guest checkout initiative
+product: Acme Storefront
+jira_project: STORE  # company-managed project key
+
+epics:
+  - id: guest-flow
+    title: Guest checkout          # let shoppers buy without an account
+    stories:
+      - id: address-entry
+        title: Collect shipping address
+        tasks:
+          - id: biz-spec-1
+            title: Define address form fields
+            type: biz-spec
+          # perf-sensitive path — must carry a measurable target
+          - id: tech-spec-1
+            title: Sub-200ms address autocomplete
+            type: tech-spec
+            subtype: perf
+            metrics:
+              baseline: p95 480ms
+              target: p95 200ms
