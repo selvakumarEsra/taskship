@@ -67,6 +67,29 @@ def init(ctx: click.Context) -> None:
 
 
 @cli.command()
+@click.argument("brief")
+@click.option("--force", is_flag=True, help="Overwrite an existing plan.yaml.")
+@click.pass_context
+def plan(ctx: click.Context, brief: str, force: bool) -> None:
+    """Decompose a product brief into plan.yaml (schema-validated)."""
+    from .decompose import decompose_brief
+    from ruamel.yaml import YAML
+
+    root = ctx.obj["root"]
+    plan_path = root / "plan.yaml"
+    if plan_path.exists() and not force:
+        raise click.ClickException(f"{plan_path} exists — pass --force to overwrite")
+
+    tree = decompose_brief(brief)  # raises on invalid output; no write on failure
+    root.mkdir(parents=True, exist_ok=True)
+    yaml = YAML()
+    yaml.indent(mapping=2, sequence=4, offset=2)
+    with plan_path.open("w", encoding="utf-8") as fh:
+        yaml.dump(tree, fh)
+    click.echo(f"Wrote {plan_path} — review it, then `taskship sync --dry-run`")
+
+
+@cli.command()
 @click.pass_context
 def review(ctx: click.Context) -> None:
     """Render the epic → story → task tree."""
