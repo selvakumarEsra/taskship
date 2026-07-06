@@ -22,6 +22,12 @@ can plan → push → replan without corrupting the board).
 
 Scope of this document is the v0 MVP contract. v0 decisions of record:
 
+- **Implementation language & core libraries:** Python 3.11+. pydantic v2 (plan
+  schema + validation), ruamel.yaml (comment-preserving YAML round-trip), httpx
+  (Jira REST client), click (CLI), the `mcp` Python SDK (server), pytest (tests).
+  Packaged as an importable `taskship` package (`taskship/model.py`,
+  `taskship/plan_io.py`, `taskship/reconcile.py`, `taskship/jira.py`,
+  `taskship/cli.py`, `taskship/mcp_server.py`; `templates/` for typed templates).
 - **Jira project type:** company-managed.
 - **Task typing in Jira:** encoded as labels (`taskship:type:<type>`,
   `taskship:subtype:<subtype>`) — no custom-field or issue-type admin setup required.
