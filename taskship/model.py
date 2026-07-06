@@ -107,6 +107,7 @@ class Story(_Node):
 
     id: Optional[str] = None
     title: str
+    summary: Optional[str] = None
     kind: Optional[str] = None
     tasks: list[Task] = []
 
@@ -120,6 +121,7 @@ class Epic(_Node):
 
     id: Optional[str] = None
     title: str
+    summary: Optional[str] = None
     stories: list[Story] = []
 
 
