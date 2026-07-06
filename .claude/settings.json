@@ -1,0 +1,63 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__specship__specship_explore",
+      "mcp__specship__specship_search",
+      "mcp__specship__specship_node",
+      "mcp__specship__specship_callers",
+      "mcp__specship__specship_callees",
+      "mcp__specship__specship_impact",
+      "mcp__specship__specship_files",
+      "mcp__specship__specship_status",
+      "mcp__specship__specship_maintainability",
+      "mcp__specship__specship_fitness",
+      "mcp__specship__designer_session",
+      "mcp__specship__designer_prompt",
+      "mcp__specship__designer_ask",
+      "mcp__specship__designer_list",
+      "mcp__specship__designer_snapshot",
+      "mcp__specship__designer_handoff"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "specship sync --quiet",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "specship sync --quiet --drift-summary"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "specship spec-nudge"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "specship statusline",
+    "_specship": true
+  }
+}
