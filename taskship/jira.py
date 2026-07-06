@@ -165,6 +165,27 @@ class JiraClient:
         issues = resp.json().get("issues", [])
         return issues[0]["key"] if issues else None
 
+    # --- REQ-TS-011: read current managed fields (conflict detection) -----
+
+    def get_current_fields(self, key: str) -> dict:
+        """Read the managed fields' current board values for conflict checks.
+
+        @implements REQ-TS-011
+        """
+        resp = self._request(
+            "GET", f"/rest/api/3/issue/{key}",
+            params={"fields": "summary,labels,description"},
+        )
+        f = resp.json().get("fields", {})
+        out: dict = {}
+        if "summary" in f:
+            out["summary"] = f["summary"]
+        if "labels" in f:
+            out["labels"] = sorted(f["labels"])
+        if "description" in f:
+            out["description"] = f["description"]
+        return out
+
     # --- REQ-TS-010: reverse sync — live board state ----------------------
 
     def get_board_status(

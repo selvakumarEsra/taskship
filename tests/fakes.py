@@ -13,6 +13,7 @@ class FakeJira:
         self.label_calls = []     # (key, label)
         self.external_index = {}  # external_id -> key (simulates label search)
         self.board = {}           # key -> live {status, assignee, story_points}
+        self.current = {}         # key -> current managed fields (hand-edit sim)
 
     def create(self, payload, parent_key):
         self._counter += 1
@@ -38,3 +39,6 @@ class FakeJira:
 
     def get_board_status(self, keys):
         return {k: self.board[k] for k in keys if k in self.board}
+
+    def get_current_fields(self, key):
+        return dict(self.current.get(key, {}))

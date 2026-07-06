@@ -127,9 +127,18 @@ def status(ctx: click.Context) -> None:
 
 def _format_report(report) -> str:
     lines = [f"{d.action:>6}  {d.external_id}   ({d.reason})" for d in report.decisions]
+    if report.conflicts:
+        lines.append("")
+        lines.append("CONFLICTS (not overwritten — resolve by hand):")
+        for c in report.conflicts:
+            lines.append(
+                f"  ! {c.external_id}.{c.field}: plan={c.plan_value!r} "
+                f"board={c.board_value!r}"
+            )
     summary = (
         f"created {len(report.created)} · updated {len(report.updated)} · "
-        f"skipped {len(report.skipped)} · orphaned {len(report.orphaned)}"
+        f"skipped {len(report.skipped)} · orphaned {len(report.orphaned)} · "
+        f"conflicts {len(report.conflicts)}"
     )
     return "\n".join(lines + ["", summary])
 
