@@ -7,12 +7,12 @@ the plan tree, ``sync`` reconciles idempotently (``--dry-run`` previews), and
 """
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Optional
 
 import click
 
+from .connect import OfflineClient, build_client
 from .plan_io import load_plan
 from .reconcile import reconcile
 from .render import render_tree
@@ -37,31 +37,16 @@ def _load_plan_or_die(root: Path):
 
 
 def _build_client(cfg: dict):
-    """Construct a real Jira client from config; overridden in tests."""
-    from .jira import JiraClient
-    missing = [k for k in ("base_url", "email", "token") if not cfg.get(k)]
-    if missing:
-        raise click.ClickException(
-            "missing Jira credentials: set "
-            + ", ".join(f"JIRA_{k.upper()}" for k in missing)
-        )
-    return JiraClient(cfg["base_url"], cfg["email"], cfg["token"], cfg["project"])
+    """Construct a real Jira client; a seam the CLI tests override."""
+    from .connect import MissingCredentials
+    try:
+        return build_client(cfg["project"])
+    except MissingCredentials as exc:
+        raise click.ClickException(str(exc))
 
 
 def _config(plan) -> dict:
-    return {
-        "base_url": os.environ.get("JIRA_BASE_URL"),
-        "email": os.environ.get("JIRA_EMAIL"),
-        "token": os.environ.get("JIRA_TOKEN"),
-        "project": plan.jira_project,
-    }
-
-
-class _OfflineClient:
-    """Read-only stand-in for a dry-run: knows of no existing issues."""
-
-    def search_by_external_id(self, external_id: str) -> Optional[str]:
-        return None
+    return {"project": plan.jira_project}
 
 
 @click.group()
@@ -97,7 +82,7 @@ def sync(ctx: click.Context, dry_run: bool) -> None:
     root = ctx.obj["root"]
     plan = _load_plan_or_die(root)
     state = StateStore(root / ".taskship" / "state.json")
-    client = _OfflineClient() if dry_run else _build_client(_config(plan))
+    client = OfflineClient() if dry_run else _build_client(_config(plan))
 
     report = reconcile(plan, client, state, dry_run=dry_run,
                        templates_dir=_templates_dir(root))
