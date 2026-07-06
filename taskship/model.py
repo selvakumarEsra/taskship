@@ -45,13 +45,24 @@ def _format_errors(error: ValidationError) -> str:
 
 
 class _Node(BaseModel):
-    """Base for plan nodes: forbid unknown fields so typos surface as errors."""
+    """Base for plan nodes: forbid unknown fields so typos surface as errors.
+
+    Cascadeable fields (REQ-TS-003) live here so every level carries them:
+    ``labels`` is ``None`` when unspecified (inherit) versus ``[]`` (explicit
+    empty override). ``labels_merge`` opts a node into unioning its labels with
+    the inherited set instead of overriding them.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
+    labels: Optional[list[str]] = None
+    labels_merge: bool = False
 
-class Metrics(_Node):
+
+class Metrics(BaseModel):
     """A measurable performance target: both endpoints are required (A3)."""
+
+    model_config = ConfigDict(extra="forbid")
 
     baseline: str
     target: str
@@ -108,11 +119,26 @@ class Epic(_Node):
     stories: list[Story] = []
 
 
-class Plan(_Node):
-    """The whole plan: product → epics → stories → tasks."""
+class Defaults(BaseModel):
+    """Plan-wide defaults — the root of the field cascade (REQ-TS-003)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    labels: list[str] = []
+
+
+class Plan(BaseModel):
+    """The whole plan: product → epics → stories → tasks.
+
+    The root of the cascade: ``defaults`` supplies the fields epics/stories/
+    tasks inherit unless they override them (REQ-TS-003).
+    """
+
+    model_config = ConfigDict(extra="forbid")
 
     product: str
     jira_project: str
+    defaults: Defaults = Defaults()
     epics: list[Epic] = []
 
     @classmethod
