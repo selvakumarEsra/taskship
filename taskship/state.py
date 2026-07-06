@@ -51,6 +51,10 @@ class StateStore:
     def known_ids(self) -> set[str]:
         return set(self._entries)
 
+    def drop(self, external_id: str) -> None:
+        """Forget a node — used once an orphan is handed off to a human."""
+        self._entries.pop(external_id, None)
+
     def save(self) -> None:
         """Persist atomically (temp + replace) so a crash never truncates state."""
         self.path.parent.mkdir(parents=True, exist_ok=True)

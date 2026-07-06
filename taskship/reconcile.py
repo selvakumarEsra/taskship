@@ -89,6 +89,7 @@ def reconcile(
     """
     report = SyncReport(dry_run=dry_run)
     payloads = build_payloads(plan, templates_dir)
+    known_before = state.known_ids()
 
     for payload in payloads:
         key = _resolve_key(payload, client, state)
@@ -120,9 +121,34 @@ def reconcile(
             state.record(payload.external_id, key, payload.content_hash,
                          payload.field_hashes)
 
+    _flag_orphans(known_before, payloads, client, state, report, dry_run)
+
     if not dry_run:
         state.save()
     return report
+
+
+ORPHAN_LABEL = "taskship:orphaned"
+
+
+def _flag_orphans(known_before, payloads, client, state, report, dry_run) -> None:
+    """Flag nodes dropped from the plan; never delete them (REQ-TS-008).
+
+    @implements REQ-TS-008
+
+    A node in state but no longer in the plan is labelled ``taskship:orphaned``
+    and reported for a human to resolve, then dropped from state so it is not
+    re-flagged on every subsequent sync.
+    """
+    present = {p.external_id for p in payloads}
+    for ext_id in sorted(known_before - present):
+        key = state.key(ext_id)
+        report._decide(ext_id, "orphan",
+                       "removed from plan; flagged taskship:orphaned for a human")
+        if not dry_run:
+            if key is not None:
+                client.add_label(key, ORPHAN_LABEL)
+            state.drop(ext_id)
 
 
 def _changed_fields(payload: NodePayload, entry) -> dict:
