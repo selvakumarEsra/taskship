@@ -58,9 +58,14 @@ class Metrics(_Node):
 
 
 class Task(_Node):
-    """A leaf work item mapped 1:1 to a Jira task-level issue."""
+    """A leaf work item mapped 1:1 to a Jira task-level issue.
 
-    id: str
+    ``id`` is optional: when omitted, identity falls back to a deterministic
+    slug of ``title`` (REQ-TS-002). Supplying an explicit ``id`` pins identity
+    so the title can change freely without creating a duplicate on sync.
+    """
+
+    id: Optional[str] = None
     title: str
     type: str
     subtype: Optional[str] = None
@@ -78,17 +83,27 @@ class Task(_Node):
 
 
 class Story(_Node):
-    """A story groups tasks under an epic (Jira level 0)."""
+    """A story groups tasks under an epic (Jira level 0).
 
-    id: str
+    ``id`` is optional; identity falls back to a slug of ``title`` when omitted
+    (REQ-TS-002). ``kind`` flags a DevOps story so its work lives in its own
+    swimlane.
+    """
+
+    id: Optional[str] = None
     title: str
+    kind: Optional[str] = None
     tasks: list[Task] = []
 
 
 class Epic(_Node):
-    """An epic groups stories under the product (Jira level 1)."""
+    """An epic groups stories under the product (Jira level 1).
 
-    id: str
+    ``id`` is optional; identity falls back to a slug of ``title`` when omitted
+    (REQ-TS-002).
+    """
+
+    id: Optional[str] = None
     title: str
     stories: list[Story] = []
 
