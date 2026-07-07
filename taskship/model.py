@@ -57,6 +57,9 @@ class _Node(BaseModel):
 
     labels: Optional[list[str]] = None
     labels_merge: bool = False
+    # Cascading delivery state (REQ-DEL-001/002): scalar inherit-or-override.
+    assignee: Optional[str] = None
+    sprint: Optional[str] = None
 
 
 class Metrics(BaseModel):
@@ -131,6 +134,8 @@ class Defaults(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     labels: list[str] = []
+    assignee: Optional[str] = None
+    sprint: Optional[str] = None
 
 
 class Plan(BaseModel):

@@ -98,6 +98,42 @@ def review(ctx: click.Context) -> None:
 
 
 @cli.command()
+@click.argument("node_id")
+@click.argument("assignee")
+@click.pass_context
+def assign(ctx: click.Context, node_id: str, assignee: str) -> None:
+    """Set a node's assignee in plan.yaml (reviewable), e.g. `assign e/s/t alice@acme.com`."""
+    from .plan_io import load_plan, dump_plan
+    from .model import Plan
+    from .identity import slug
+
+    root = ctx.obj["root"]
+    plan_path = root / "plan.yaml"
+    if not plan_path.exists():
+        raise click.ClickException(f"no plan.yaml in {root}")
+    _plan, raw = load_plan(plan_path)
+
+    def node_local_id(node) -> str:
+        return node.get("id") or slug(node.get("title", ""))
+
+    segments = node_id.split("/")
+    level = {0: raw.get("epics", []), 1: "stories", 2: "tasks"}
+    cursor_list = raw.get("epics", [])
+    target = None
+    for depth, seg in enumerate(segments):
+        target = next((n for n in cursor_list if node_local_id(n) == seg), None)
+        if target is None:
+            raise click.ClickException(f"no node '{node_id}' (missing segment '{seg}')")
+        if depth < len(segments) - 1:
+            cursor_list = target.get(level[depth + 1], [])
+
+    target["assignee"] = assignee
+    Plan.from_mapping(raw)  # validate before writing
+    dump_plan(raw, plan_path)
+    click.echo(f"Assigned {node_id} → {assignee} in {plan_path}")
+
+
+@cli.command()
 @click.option("--dry-run", is_flag=True, help="Preview create/update/skip; no writes.")
 @click.pass_context
 def sync(ctx: click.Context, dry_run: bool) -> None:
@@ -143,10 +179,15 @@ def _format_report(report) -> str:
                 f"  ! {c.external_id}.{c.field}: plan={c.plan_value!r} "
                 f"board={c.board_value!r}"
             )
+    if report.errors:
+        lines.append("")
+        lines.append("ERRORS (node skipped, sync continued):")
+        for e in report.errors:
+            lines.append(f"  ✗ {e.external_id}: {e.message}")
     summary = (
         f"created {len(report.created)} · updated {len(report.updated)} · "
         f"skipped {len(report.skipped)} · orphaned {len(report.orphaned)} · "
-        f"conflicts {len(report.conflicts)}"
+        f"conflicts {len(report.conflicts)} · errors {len(report.errors)}"
     )
     return "\n".join(lines + ["", summary])
 

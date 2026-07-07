@@ -97,6 +97,7 @@ class JiraClient:
         self.max_attempts = max_attempts
         self.backoff_base = backoff_base
         self._sleep = sleep
+        self._account_cache: dict[str, str] = {}
         self._client = client or httpx.Client(
             base_url=self.base_url, auth=(email, api_token),
             headers={"Accept": "application/json"}, timeout=30.0,
@@ -127,6 +128,8 @@ class JiraClient:
             fields["description"] = payload.description
         if parent_key is not None:
             fields["parent"] = {"key": parent_key}
+        if payload.assignee is not None:
+            fields["assignee"] = {"accountId": self._account_id(payload.assignee)}
         resp = self._request("POST", "/rest/api/3/issue", json={"fields": fields})
         return resp.json()["key"]
 
@@ -138,8 +141,34 @@ class JiraClient:
             fields["labels"] = changed_fields["labels"]
         if "description" in changed_fields:
             fields["description"] = changed_fields["description"]
+        if "assignee" in changed_fields:
+            fields["assignee"] = {"accountId": self._account_id(changed_fields["assignee"])}
         if fields:
             self._request("PUT", f"/rest/api/3/issue/{key}", json={"fields": fields})
+
+    # --- REQ-DEL-001: resolve an authored assignee to a Jira accountId ----
+
+    def _account_id(self, assignee: str) -> str:
+        """Resolve an email to a Jira accountId; pass an accountId through.
+
+        @implements REQ-DEL-001
+
+        Raises :class:`JiraError` naming the assignee when no user matches, so
+        the reconciler records it as a per-node error and continues.
+        """
+        if "@" not in assignee:
+            return assignee  # already an accountId
+        if assignee in self._account_cache:
+            return self._account_cache[assignee]
+        resp = self._request(
+            "GET", "/rest/api/3/user/search", params={"query": assignee},
+        )
+        users = resp.json()
+        if not users:
+            raise JiraError(f"no Jira user matches assignee '{assignee}'")
+        account_id = users[0]["accountId"]
+        self._account_cache[assignee] = account_id
+        return account_id
 
     # --- REQ-TS-008: orphan flagging --------------------------------------
 

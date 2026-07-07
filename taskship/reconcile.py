@@ -52,12 +52,21 @@ class NodeDecision:
 
 
 @dataclass
+class SyncError:
+    """A node whose Jira write failed; the sync continues past it (REQ-DEL-001)."""
+
+    external_id: str
+    message: str
+
+
+@dataclass
 class SyncReport:
     created: list[str] = field(default_factory=list)
     updated: list[str] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
     orphaned: list[str] = field(default_factory=list)
     conflicts: list[Conflict] = field(default_factory=list)
+    errors: list[SyncError] = field(default_factory=list)
     decisions: list[NodeDecision] = field(default_factory=list)
     dry_run: bool = False
 
@@ -77,6 +86,9 @@ class SyncReport:
                 {"id": c.external_id, "field": c.field,
                  "plan": c.plan_value, "board": c.board_value}
                 for c in self.conflicts
+            ],
+            "errors": [
+                {"id": e.external_id, "message": e.message} for e in self.errors
             ],
             "decisions": [
                 {"id": d.external_id, "action": d.action, "reason": d.reason}
@@ -109,31 +121,34 @@ def reconcile(
     known_before = state.known_ids()
 
     for payload in payloads:
-        key = _resolve_key(payload, client, state)
+        try:
+            key = _resolve_key(payload, client, state)
 
-        if key is None:
-            parent_key = (
-                state.key(payload.parent_external_id)
-                if payload.parent_external_id else None
-            )
-            report._decide(payload.external_id, "create", "no existing Jira issue")
-            if not dry_run:
-                key = client.create(payload, parent_key)
-                state.record(payload.external_id, key, payload.content_hash,
-                             payload.field_hashes)
-            continue
+            if key is None:
+                parent_key = (
+                    state.key(payload.parent_external_id)
+                    if payload.parent_external_id else None
+                )
+                report._decide(payload.external_id, "create", "no existing Jira issue")
+                if not dry_run:
+                    key = client.create(payload, parent_key)
+                    state.record(payload.external_id, key, payload.content_hash,
+                                 payload.field_hashes)
+                continue
 
-        entry = state.entry(payload.external_id)
-        if entry is None:
-            report._decide(payload.external_id, "update",
-                           "recovered via watermark; re-asserting desired state")
-        elif entry.hash != payload.content_hash:
-            report._decide(payload.external_id, "update", "content changed")
-        else:
-            report._decide(payload.external_id, "skip", "unchanged")
-            continue
+            entry = state.entry(payload.external_id)
+            if entry is None:
+                report._decide(payload.external_id, "update",
+                               "recovered via watermark; re-asserting desired state")
+            elif entry.hash != payload.content_hash:
+                report._decide(payload.external_id, "update", "content changed")
+            else:
+                report._decide(payload.external_id, "skip", "unchanged")
+                continue
 
-        _apply_update(payload, key, entry, client, state, report, dry_run)
+            _apply_update(payload, key, entry, client, state, report, dry_run)
+        except Exception as exc:  # one bad node must not abort the whole sync
+            report.errors.append(SyncError(payload.external_id, str(exc)))
 
     _flag_orphans(known_before, payloads, client, state, report, dry_run)
 

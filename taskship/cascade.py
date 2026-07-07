@@ -24,6 +24,19 @@ class ResolvedFields:
     """The effective, post-cascade fields for one node (REQ-TS-003 A3)."""
 
     labels: list[str]
+    assignee: Optional[str] = None
+    sprint: Optional[str] = None
+
+
+def effective_scalar(inherited: Optional[str], value: Optional[str]) -> Optional[str]:
+    """Resolve a scalar cascade field: the node's value, else the inherited one.
+
+    @implements REQ-DEL-001
+
+    Unlike labels there is no merge — a narrower scope either overrides
+    (``value`` is set) or inherits (``value is None``).
+    """
+    return value if value is not None else inherited
 
 
 def effective_labels(
@@ -59,11 +72,17 @@ def resolve_plan(plan: Plan) -> dict[str, ResolvedFields]:
     """
     resolved: dict[str, ResolvedFields] = {}
     root_labels = list(plan.defaults.labels)
+    root_assignee = plan.defaults.assignee
+    root_sprint = plan.defaults.sprint
 
     for epic in plan.epics:
         eid = local_id(epic)
         epic_labels = effective_labels(root_labels, epic.labels, epic.labels_merge)
-        resolved[qualified_id(eid)] = ResolvedFields(labels=epic_labels)
+        epic_assignee = effective_scalar(root_assignee, epic.assignee)
+        epic_sprint = effective_scalar(root_sprint, epic.sprint)
+        resolved[qualified_id(eid)] = ResolvedFields(
+            labels=epic_labels, assignee=epic_assignee, sprint=epic_sprint
+        )
 
         for story in epic.stories:
             sid = local_id(story)
@@ -71,7 +90,11 @@ def resolve_plan(plan: Plan) -> dict[str, ResolvedFields]:
             story_labels = effective_labels(
                 epic_labels, story.labels, story.labels_merge
             )
-            resolved[story_qid] = ResolvedFields(labels=story_labels)
+            story_assignee = effective_scalar(epic_assignee, story.assignee)
+            story_sprint = effective_scalar(epic_sprint, story.sprint)
+            resolved[story_qid] = ResolvedFields(
+                labels=story_labels, assignee=story_assignee, sprint=story_sprint
+            )
 
             for task in story.tasks:
                 tid = local_id(task)
@@ -79,7 +102,9 @@ def resolve_plan(plan: Plan) -> dict[str, ResolvedFields]:
                     story_labels, task.labels, task.labels_merge
                 )
                 resolved[qualified_id(eid, sid, tid)] = ResolvedFields(
-                    labels=task_labels
+                    labels=task_labels,
+                    assignee=effective_scalar(story_assignee, task.assignee),
+                    sprint=effective_scalar(story_sprint, task.sprint),
                 )
 
     return resolved
