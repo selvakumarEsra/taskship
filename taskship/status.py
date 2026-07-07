@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Optional, Protocol
 
 from .identity import iter_nodes
-from .model import Plan
+from .model import Epic, Plan, Story, Task
 from .state import StateStore
 
 
@@ -28,6 +28,7 @@ class StatusRow:
     status: Optional[str]
     assignee: Optional[str]
     story_points: Optional[object]
+    kind: str = "task"   # "epic" | "story" | "task"
 
 
 def build_status_view(plan: Plan, client: BoardReader, state: StateStore) -> list[StatusRow]:
@@ -42,6 +43,7 @@ def build_status_view(plan: Plan, client: BoardReader, state: StateStore) -> lis
     keys = [k for k in (state.key(ext) for ext, _n, _l in nodes) if k is not None]
     board = client.get_board_status(keys) if keys else {}
 
+    kinds = {Epic: "epic", Story: "story", Task: "task"}
     rows: list[StatusRow] = []
     for ext_id, node, level in nodes:
         key = state.key(ext_id)
@@ -54,5 +56,6 @@ def build_status_view(plan: Plan, client: BoardReader, state: StateStore) -> lis
             status=live.get("status"),
             assignee=live.get("assignee"),
             story_points=live.get("story_points"),
+            kind=kinds.get(type(node), "task"),
         ))
     return rows

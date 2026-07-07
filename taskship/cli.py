@@ -169,6 +169,72 @@ def status(ctx: click.Context) -> None:
         click.echo(f"{indent}{jira:<10} {live}{who}{pts}  {row.title}")
 
 
+@cli.command()
+@click.pass_context
+def board(ctx: click.Context) -> None:
+    """Kanban view: tasks grouped by live Jira status (no sprint needed)."""
+    from .ceremonies import board_columns
+    root = ctx.obj["root"]
+    plan = _load_plan_or_die(root)
+    state = StateStore(root / ".taskship" / "state.json")
+    rows = build_status_view(plan, _build_client(_config(plan)), state)
+
+    for column, items in board_columns(rows).items():
+        click.echo(f"\n  {column.upper()}  ({len(items)})")
+        for it in items:
+            key = f"{it.jira} " if it.jira else ""
+            who = f"  · {it.assignee}" if it.assignee else ""
+            click.echo(f"    · {key}{it.title}{who}")
+
+
+@cli.command()
+@click.option("--out", default="standup.md", help="Markdown output file.")
+@click.pass_context
+def standup(ctx: click.Context, out: str) -> None:
+    """Daily standup: what changed since the last run, per assignee."""
+    import json
+    from .ceremonies import standup_snapshot, standup_diff, render_standup_md
+    root = ctx.obj["root"]
+    plan = _load_plan_or_die(root)
+    state = StateStore(root / ".taskship" / "state.json")
+    client = _build_client(_config(plan))
+
+    rows = build_status_view(plan, client, state)
+    dry = reconcile(plan, client, state, dry_run=True, templates_dir=_templates_dir(root))
+    conflict_ids = {c.external_id for c in dry.conflicts}
+
+    snap_path = root / ".taskship" / "standup.json"
+    prev = json.loads(snap_path.read_text()) if snap_path.exists() else {}
+    diff = standup_diff(prev, rows, conflict_ids)
+
+    md = render_standup_md(diff)
+    click.echo(md)
+    (root / out).write_text(md, encoding="utf-8")
+    snap_path.parent.mkdir(parents=True, exist_ok=True)
+    snap_path.write_text(json.dumps(standup_snapshot(rows), indent=2), encoding="utf-8")
+    click.echo(f"— written to {root / out}")
+
+
+@cli.command()
+@click.option("--out", default="status-report.html", help="HTML output file.")
+@click.pass_context
+def report(ctx: click.Context, out: str) -> None:
+    """Executive status report (HTML): progress, workload, risks."""
+    from .ceremonies import build_report, render_report_html
+    root = ctx.obj["root"]
+    plan = _load_plan_or_die(root)
+    state = StateStore(root / ".taskship" / "state.json")
+    client = _build_client(_config(plan))
+
+    rows = build_status_view(plan, client, state)
+    dry = reconcile(plan, client, state, dry_run=True, templates_dir=_templates_dir(root))
+    conflicts = [{"id": c.external_id, "field": c.field} for c in dry.conflicts]
+    data = build_report(rows, conflicts=conflicts, orphans=dry.orphaned)
+
+    (root / out).write_text(render_report_html(data, plan.product), encoding="utf-8")
+    click.echo(f"Wrote status report → {root / out}")
+
+
 def _format_report(report) -> str:
     lines = [f"{d.action:>6}  {d.external_id}   ({d.reason})" for d in report.decisions]
     if report.conflicts:
