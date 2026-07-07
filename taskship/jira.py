@@ -87,6 +87,7 @@ class JiraClient:
         api_token: str,
         project_key: str,
         *,
+        sprint_field: Optional[str] = None,
         max_attempts: int = 5,
         backoff_base: float = 0.5,
         sleep: Callable[[float], None] = time.sleep,
@@ -94,6 +95,9 @@ class JiraClient:
     ):
         self.base_url = base_url.rstrip("/")
         self.project_key = project_key
+        # Instance-specific Sprint custom field id (e.g. "customfield_10020");
+        # sprint sync is a no-op when unconfigured (REQ-DEL-002).
+        self.sprint_field = sprint_field
         self.max_attempts = max_attempts
         self.backoff_base = backoff_base
         self._sleep = sleep
@@ -130,6 +134,8 @@ class JiraClient:
             fields["parent"] = {"key": parent_key}
         if payload.assignee is not None:
             fields["assignee"] = {"accountId": self._account_id(payload.assignee)}
+        if payload.sprint is not None and self.sprint_field:
+            fields[self.sprint_field] = payload.sprint
         resp = self._request("POST", "/rest/api/3/issue", json={"fields": fields})
         return resp.json()["key"]
 
@@ -143,6 +149,8 @@ class JiraClient:
             fields["description"] = changed_fields["description"]
         if "assignee" in changed_fields:
             fields["assignee"] = {"accountId": self._account_id(changed_fields["assignee"])}
+        if "sprint" in changed_fields and self.sprint_field:
+            fields[self.sprint_field] = changed_fields["sprint"]
         if fields:
             self._request("PUT", f"/rest/api/3/issue/{key}", json={"fields": fields})
 
