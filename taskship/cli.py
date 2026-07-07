@@ -98,6 +98,42 @@ def review(ctx: click.Context) -> None:
 
 
 @cli.command()
+@click.argument("node_id")
+@click.argument("assignee")
+@click.pass_context
+def assign(ctx: click.Context, node_id: str, assignee: str) -> None:
+    """Set a node's assignee in plan.yaml (reviewable), e.g. `assign e/s/t alice@acme.com`."""
+    from .plan_io import load_plan, dump_plan
+    from .model import Plan
+    from .identity import slug
+
+    root = ctx.obj["root"]
+    plan_path = root / "plan.yaml"
+    if not plan_path.exists():
+        raise click.ClickException(f"no plan.yaml in {root}")
+    _plan, raw = load_plan(plan_path)
+
+    def node_local_id(node) -> str:
+        return node.get("id") or slug(node.get("title", ""))
+
+    segments = node_id.split("/")
+    level = {0: raw.get("epics", []), 1: "stories", 2: "tasks"}
+    cursor_list = raw.get("epics", [])
+    target = None
+    for depth, seg in enumerate(segments):
+        target = next((n for n in cursor_list if node_local_id(n) == seg), None)
+        if target is None:
+            raise click.ClickException(f"no node '{node_id}' (missing segment '{seg}')")
+        if depth < len(segments) - 1:
+            cursor_list = target.get(level[depth + 1], [])
+
+    target["assignee"] = assignee
+    Plan.from_mapping(raw)  # validate before writing
+    dump_plan(raw, plan_path)
+    click.echo(f"Assigned {node_id} → {assignee} in {plan_path}")
+
+
+@cli.command()
 @click.option("--dry-run", is_flag=True, help="Preview create/update/skip; no writes.")
 @click.pass_context
 def sync(ctx: click.Context, dry_run: bool) -> None:
@@ -133,6 +169,72 @@ def status(ctx: click.Context) -> None:
         click.echo(f"{indent}{jira:<10} {live}{who}{pts}  {row.title}")
 
 
+@cli.command()
+@click.pass_context
+def board(ctx: click.Context) -> None:
+    """Kanban view: tasks grouped by live Jira status (no sprint needed)."""
+    from .ceremonies import board_columns
+    root = ctx.obj["root"]
+    plan = _load_plan_or_die(root)
+    state = StateStore(root / ".taskship" / "state.json")
+    rows = build_status_view(plan, _build_client(_config(plan)), state)
+
+    for column, items in board_columns(rows).items():
+        click.echo(f"\n  {column.upper()}  ({len(items)})")
+        for it in items:
+            key = f"{it.jira} " if it.jira else ""
+            who = f"  · {it.assignee}" if it.assignee else ""
+            click.echo(f"    · {key}{it.title}{who}")
+
+
+@cli.command()
+@click.option("--out", default="standup.md", help="Markdown output file.")
+@click.pass_context
+def standup(ctx: click.Context, out: str) -> None:
+    """Daily standup: what changed since the last run, per assignee."""
+    import json
+    from .ceremonies import standup_snapshot, standup_diff, render_standup_md
+    root = ctx.obj["root"]
+    plan = _load_plan_or_die(root)
+    state = StateStore(root / ".taskship" / "state.json")
+    client = _build_client(_config(plan))
+
+    rows = build_status_view(plan, client, state)
+    dry = reconcile(plan, client, state, dry_run=True, templates_dir=_templates_dir(root))
+    conflict_ids = {c.external_id for c in dry.conflicts}
+
+    snap_path = root / ".taskship" / "standup.json"
+    prev = json.loads(snap_path.read_text()) if snap_path.exists() else {}
+    diff = standup_diff(prev, rows, conflict_ids)
+
+    md = render_standup_md(diff)
+    click.echo(md)
+    (root / out).write_text(md, encoding="utf-8")
+    snap_path.parent.mkdir(parents=True, exist_ok=True)
+    snap_path.write_text(json.dumps(standup_snapshot(rows), indent=2), encoding="utf-8")
+    click.echo(f"— written to {root / out}")
+
+
+@cli.command()
+@click.option("--out", default="status-report.html", help="HTML output file.")
+@click.pass_context
+def report(ctx: click.Context, out: str) -> None:
+    """Executive status report (HTML): progress, workload, risks."""
+    from .ceremonies import build_report, render_report_html
+    root = ctx.obj["root"]
+    plan = _load_plan_or_die(root)
+    state = StateStore(root / ".taskship" / "state.json")
+    client = _build_client(_config(plan))
+
+    rows = build_status_view(plan, client, state)
+    dry = reconcile(plan, client, state, dry_run=True, templates_dir=_templates_dir(root))
+    conflicts = [{"id": c.external_id, "field": c.field} for c in dry.conflicts]
+    data = build_report(rows, conflicts=conflicts, orphans=dry.orphaned)
+
+    (root / out).write_text(render_report_html(data, plan.product), encoding="utf-8")
+    click.echo(f"Wrote status report → {root / out}")
+
+
 def _format_report(report) -> str:
     lines = [f"{d.action:>6}  {d.external_id}   ({d.reason})" for d in report.decisions]
     if report.conflicts:
@@ -143,10 +245,15 @@ def _format_report(report) -> str:
                 f"  ! {c.external_id}.{c.field}: plan={c.plan_value!r} "
                 f"board={c.board_value!r}"
             )
+    if report.errors:
+        lines.append("")
+        lines.append("ERRORS (node skipped, sync continued):")
+        for e in report.errors:
+            lines.append(f"  ✗ {e.external_id}: {e.message}")
     summary = (
         f"created {len(report.created)} · updated {len(report.updated)} · "
         f"skipped {len(report.skipped)} · orphaned {len(report.orphaned)} · "
-        f"conflicts {len(report.conflicts)}"
+        f"conflicts {len(report.conflicts)} · errors {len(report.errors)}"
     )
     return "\n".join(lines + ["", summary])
 

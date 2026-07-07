@@ -35,4 +35,7 @@ def build_client(project: str):
             "missing Jira credentials: "
             + ", ".join(f"JIRA_{k.upper()}" for k in missing)
         )
-    return JiraClient(cfg["base_url"], cfg["email"], cfg["token"], project)
+    return JiraClient(
+        cfg["base_url"], cfg["email"], cfg["token"], project,
+        sprint_field=os.environ.get("JIRA_SPRINT_FIELD"),  # e.g. customfield_10020
+    )

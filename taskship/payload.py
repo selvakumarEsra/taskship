@@ -43,6 +43,8 @@ class NodePayload:
     labels: list[str]
     parent_external_id: Optional[str]
     description: Optional[dict]  # ADF; tasks only
+    assignee: Optional[str] = None   # REQ-DEL-001
+    sprint: Optional[str] = None     # REQ-DEL-002
     fields: dict[str, object] = field(default_factory=dict)
     field_hashes: dict[str, str] = field(default_factory=dict)
     content_hash: str = ""
@@ -52,6 +54,10 @@ class NodePayload:
         self.fields = {"summary": self.summary, "labels": sorted(self.labels)}
         if self.description is not None:
             self.fields["description"] = self.description
+        if self.assignee is not None:
+            self.fields["assignee"] = self.assignee
+        if self.sprint is not None:
+            self.fields["sprint"] = self.sprint
         self.field_hashes = {k: _field_hash(v) for k, v in self.fields.items()}
         # Overall hash also folds in structural fields that aren't patch-diffed.
         self.content_hash = _field_hash({
@@ -94,6 +100,8 @@ def build_payloads(
             labels=_dedupe(labels),
             parent_external_id=parent,
             description=description,
+            assignee=resolved[ext_id].assignee,
+            sprint=resolved[ext_id].sprint,
         ))
     return payloads
 
