@@ -1,0 +1,60 @@
+---
+// REQ-SITE-003 — core problems, each paired with the capability that addresses it.
+const problems = [
+  {
+    problem: 'Hand-building Jira hierarchies is slow.',
+    detail: 'You spend hours clicking out epics, stories and a scatter of tasks for every product area.',
+    fix: 'Plan-as-code',
+    fixLine: 'Describe the product once; TaskShip decomposes it into an Epic → Story → Task tree.',
+  },
+  {
+    problem: 'Every ticket is shaped differently.',
+    detail: 'Specs are blank boxes. Perf work has no baseline, DevOps work is buried under features.',
+    fix: 'Typed templates',
+    fixLine: 'biz-spec, tech-spec and devops render consistent, structured tickets — and refuse blanks.',
+  },
+  {
+    problem: 'You can’t review a plan before it hits the board.',
+    detail: 'By the time it’s in Jira, it already clutters the board and is painful to restructure.',
+    fix: 'Reviewable plan.yaml',
+    fixLine: 'The plan is a version-controlled file — diff it, review it in a PR, regenerate it.',
+  },
+];
+---
+<section class="section section--soft" id="problem">
+  <div class="container">
+    <div class="section__head">
+      <span class="eyebrow">The problem</span>
+      <h2>Jira should be where work lives — not where you think.</h2>
+      <p>Planning by clicking around a board is slow, inconsistent, and impossible to review before it clutters the board. TaskShip makes the plan a first-class artifact.</p>
+    </div>
+
+    <div class="grid grid--3">
+      {problems.map((p) => (
+        <div class="card prob">
+          <p class="prob__q">{p.problem}</p>
+          <p class="prob__detail">{p.detail}</p>
+          <div class="prob__fix">
+            <span class="prob__pill">{p.fix}</span>
+            <p>{p.fixLine}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .prob { display: flex; flex-direction: column; }
+  .prob__q { font-weight: 700; font-size: 1.12rem; letter-spacing: -0.01em; }
+  .prob__detail { color: var(--ink-muted); margin-top: 10px; font-size: 0.98rem; }
+  .prob__fix {
+    margin-top: 18px; padding-top: 18px; border-top: 1px dashed var(--border-strong);
+  }
+  .prob__pill {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.75rem;
+    font-weight: 600; color: var(--brand-ink); background: var(--brand-soft);
+    border: 1px solid #dcdcf7; border-radius: 999px; padding: 3px 10px; margin-bottom: 8px;
+  }
+  .prob__fix p { color: var(--ink); font-size: 0.96rem; }
+</style>

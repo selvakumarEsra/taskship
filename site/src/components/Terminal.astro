@@ -1,0 +1,70 @@
+---
+// A representative taskship CLI session (REQ-SITE-002.A3) — the commands and
+// output mirror the real `taskship` binary (plan / review / sync --dry-run).
+---
+<div class="term" role="img" aria-label="A terminal session running taskship plan, review, and sync --dry-run">
+  <div class="term__bar">
+    <span class="term__dot term__dot--r"></span>
+    <span class="term__dot term__dot--y"></span>
+    <span class="term__dot term__dot--g"></span>
+    <span class="term__title">zsh — taskship</span>
+  </div>
+  <pre class="term__body"><code><span class="c-prompt">$</span> <span class="c-cmd">taskship plan</span> <span class="c-str">"Checkout Revamp: one-click guest checkout"</span>
+<span class="c-dim">Wrote plan.yaml — review it, then `taskship sync --dry-run`</span>
+
+<span class="c-prompt">$</span> <span class="c-cmd">taskship review</span>
+Checkout Revamp  (CHK)
+  <span class="c-cyan">▸ [Epic]</span> One-click guest checkout
+    <span class="c-cyan">• [Story]</span> Guest checkout flow
+      <span class="c-dim">- [biz-spec]</span>  Define guest checkout requirements
+      <span class="c-dim">- [tech-spec/perf]</span> Payment auth p95 &lt; 200ms
+
+<span class="c-prompt">$</span> <span class="c-cmd">taskship sync</span> <span class="c-flag">--dry-run</span>
+<span class="c-yellow">DRY RUN — no changes written</span>
+<span class="c-green">create</span>  guest-checkout                          <span class="c-dim">(no existing Jira issue)</span>
+<span class="c-green">create</span>  guest-checkout/guest-flow               <span class="c-dim">(no existing Jira issue)</span>
+<span class="c-green">create</span>  guest-checkout/guest-flow/biz-spec-1    <span class="c-dim">(no existing Jira issue)</span>
+
+<span class="c-dim">created 3 · updated 0 · skipped 0 · orphaned 0 · conflicts 0</span>
+<span class="term__cursor">▋</span></code></pre>
+</div>
+
+<style>
+  .term {
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid #1c2236;
+    background: var(--term-bg);
+    box-shadow: var(--shadow-lg);
+  }
+  .term__bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 11px 14px; background: #161b2c; border-bottom: 1px solid #232a42;
+  }
+  .term__dot { width: 11px; height: 11px; border-radius: 50%; }
+  .term__dot--r { background: #ff5f57; }
+  .term__dot--y { background: #febc2e; }
+  .term__dot--g { background: #28c840; }
+  .term__title {
+    margin-left: 8px; color: var(--term-dim); font-size: 0.8rem;
+    font-family: var(--font-mono);
+  }
+  .term__body {
+    margin: 0; padding: 18px 18px 20px;
+    font-family: var(--font-mono);
+    font-size: 0.82rem; line-height: 1.62;
+    color: var(--term-ink);
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .c-prompt { color: var(--term-green); user-select: none; }
+  .c-cmd { color: #cfd6f0; font-weight: 600; }
+  .c-str { color: var(--term-yellow); }
+  .c-flag { color: var(--term-cyan); }
+  .c-dim { color: var(--term-dim); }
+  .c-cyan { color: var(--term-cyan); }
+  .c-green { color: var(--term-green); font-weight: 600; }
+  .c-yellow { color: var(--term-yellow); }
+  .term__cursor { color: var(--term-ink); animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+</style>

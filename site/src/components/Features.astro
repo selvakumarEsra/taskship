@@ -1,0 +1,41 @@
+---
+// REQ-SITE-005 — differentiators as scannable cards (≥4, all distinct).
+const features = [
+  { icon: '◇', title: 'Plan-as-code', body: 'One version-controlled plan.yaml. Reviewable in a PR, diffable across revisions, regenerable from a brief.' },
+  { icon: '↻', title: 'Idempotent sync', body: 'Create / update / skip per node against a content hash. Re-run all day — it never duplicates.' },
+  { icon: '▤', title: 'Typed task templates', body: 'biz-spec, tech-spec and devops render structured ADF. A perf task with no metric refuses to render.' },
+  { icon: '⌘', title: 'Two front doors', body: 'A CLI for humans and an MCP server for agents — the exact same engine behind both.' },
+  { icon: '⚑', title: 'Safe by design', body: 'State-file loss self-heals via a taskship:<id> watermark. Removed nodes are flagged, never auto-deleted.' },
+  { icon: '⚖', title: 'Intent vs. board', body: 'Reverse-sync live status back in. Hand edits that clash with the plan are surfaced, not silently overwritten.' },
+];
+---
+<section class="section section--soft" id="features">
+  <div class="container">
+    <div class="section__head">
+      <span class="eyebrow">Features</span>
+      <h2>The system of intent above your board.</h2>
+      <p>Jira is the system of record. TaskShip is where the plan is authored, reviewed, and reconciled.</p>
+    </div>
+
+    <div class="grid grid--4">
+      {features.map((f) => (
+        <div class="card feat">
+          <span class="feat__icon" aria-hidden="true">{f.icon}</span>
+          <h3>{f.title}</h3>
+          <p>{f.body}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .feat { display: flex; flex-direction: column; }
+  .feat__icon {
+    width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center;
+    font-size: 1.25rem; color: var(--brand); background: var(--brand-soft);
+    border: 1px solid #dcdcf7; margin-bottom: 14px;
+  }
+  .feat h3 { margin-bottom: 7px; }
+  .feat p { color: var(--ink-muted); font-size: 0.95rem; }
+</style>

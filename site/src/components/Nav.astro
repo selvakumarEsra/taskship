@@ -1,0 +1,56 @@
+---
+---
+<header class="nav">
+  <div class="container nav__inner">
+    <a class="nav__brand" href="#top" aria-label="TaskShip home">
+      <span class="nav__mark" aria-hidden="true">◇</span>
+      <span class="nav__name">TaskShip</span>
+    </a>
+    <nav class="nav__links" aria-label="Primary">
+      <a href="#problem">Why</a>
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+    </nav>
+    <a class="btn btn--primary nav__cta" href="#install">Get started</a>
+  </div>
+</header>
+
+<style>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: saturate(140%) blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav__inner {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    height: 64px;
+  }
+  .nav__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-weight: 700;
+    font-size: 1.08rem;
+    letter-spacing: -0.02em;
+  }
+  .nav__mark { color: var(--brand); font-size: 1.2rem; }
+  .nav__links {
+    display: none;
+    gap: 26px;
+    margin-left: auto;
+    color: var(--ink-muted);
+    font-weight: 500;
+    font-size: 0.98rem;
+  }
+  .nav__links a:hover { color: var(--brand-ink); }
+  .nav__cta { margin-left: auto; padding: 9px 16px; font-size: 0.95rem; }
+  @media (min-width: 780px) {
+    .nav__links { display: flex; }
+    .nav__cta { margin-left: 0; }
+  }
+</style>

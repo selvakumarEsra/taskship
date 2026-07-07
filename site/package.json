@@ -1,0 +1,15 @@
+{
+  "name": "taskship-site",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Marketing landing site for TaskShip (SITE-DOC)",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "astro": "^4.16.0"
+  }
+}

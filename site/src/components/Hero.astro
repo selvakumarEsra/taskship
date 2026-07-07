@@ -1,0 +1,74 @@
+---
+import Pipeline from './Pipeline.astro';
+import Terminal from './Terminal.astro';
+---
+<section class="hero" id="top">
+  <div class="container hero__inner">
+    <div class="hero__copy">
+      <span class="eyebrow">Plan-as-code for Jira</span>
+      <h1>Jira is where work lives.<br /><span class="hero__accent">TaskShip is where you plan it.</span></h1>
+      <p class="hero__sub">
+        Turn a product brief into a reviewable <code>plan.yaml</code>, then sync it
+        into Jira — <strong>idempotently</strong>. Re-running never duplicates: it
+        diffs and updates. Driven by you on the CLI, or your agent over MCP.
+      </p>
+      <div class="hero__cta">
+        <a class="btn btn--primary" href="#install">Install &amp; get started →</a>
+        <a class="btn btn--ghost" href="#how">See how it works</a>
+      </div>
+      <p class="hero__note">
+        <span class="hero__dot" aria-hidden="true"></span>
+        Python 3.11+ · <code>pip install taskship</code> · company-managed Jira Cloud
+      </p>
+    </div>
+
+    <div class="hero__visual">
+      <Pipeline />
+      <Terminal />
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    padding: 72px 0 88px;
+    background:
+      radial-gradient(1100px 400px at 15% -8%, #eeeefc 0%, rgba(238, 238, 252, 0) 60%),
+      radial-gradient(900px 400px at 100% 0%, #e6f2ff 0%, rgba(230, 242, 255, 0) 55%),
+      var(--bg);
+  }
+  .hero__inner {
+    display: grid;
+    gap: 48px;
+    align-items: center;
+  }
+  .hero__copy h1 { margin: 18px 0 0; }
+  .hero__accent { color: var(--brand); }
+  .hero__sub {
+    margin-top: 20px;
+    font-size: 1.16rem;
+    color: var(--ink-muted);
+    max-width: 34em;
+  }
+  .hero__sub code, .hero__note code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: var(--brand-soft);
+    color: var(--brand-ink);
+    padding: 1px 6px;
+    border-radius: 6px;
+  }
+  .hero__cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+  .hero__note {
+    display: flex; align-items: center; gap: 9px;
+    margin-top: 22px; color: var(--ink-faint); font-size: 0.92rem;
+  }
+  .hero__dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--ok); box-shadow: 0 0 0 4px rgba(18, 153, 107, 0.14);
+  }
+  .hero__visual { display: grid; gap: 18px; min-width: 0; }
+  @media (min-width: 960px) {
+    .hero__inner { grid-template-columns: 1.02fr 1.1fr; gap: 56px; }
+  }
+</style>

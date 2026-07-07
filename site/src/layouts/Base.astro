@@ -1,0 +1,41 @@
+---
+import '../styles/global.css';
+const { title = 'TaskShip — plan-as-code for Jira', description = 'Turn a product brief into a reviewable plan-as-code, then sync it into Jira idempotently. Driven by humans (CLI) or agents (MCP).' } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <slot />
+    <script>
+      // Progressive-enhancement copy buttons for command blocks.
+      document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const text = btn.getAttribute('data-copy') || '';
+          try {
+            await navigator.clipboard.writeText(text);
+            const prev = btn.textContent;
+            btn.textContent = 'Copied';
+            setTimeout(() => (btn.textContent = prev), 1400);
+          } catch {
+            /* clipboard unavailable — the text is still selectable */
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
