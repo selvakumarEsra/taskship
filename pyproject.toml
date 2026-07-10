@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "taskship"
-version = "0.0.0"
+version = "0.1.0"
 description = "Plan-as-code planning layer over Jira"
 readme = "specs/taskship.md"
 requires-python = ">=3.11"
@@ -29,6 +29,9 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["taskship"]
+
+[tool.hatch.build.targets.sdist]
+only-include = ["taskship", "tests", "specs/taskship.md", "specship.config.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
