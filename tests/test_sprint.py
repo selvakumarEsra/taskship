@@ -56,13 +56,24 @@ def test_a3_no_sprint_is_not_written():
     assert "assignee" not in payloads["e/s/t"].fields
 
 
-def test_real_client_writes_sprint_to_configured_field():
+def test_real_client_resolves_sprint_name_to_numeric_id():
+    # Jira's Sprint field rejects strings ("The Sprint (id) must be a number",
+    # verified against Jira Cloud) — the client must resolve name → id via the
+    # Agile API and write the number.
     captured = {}
 
     def handler(request):
-        if request.method == "POST" and request.url.path == "/rest/api/3/issue":
+        path = request.url.path
+        if request.method == "POST" and path == "/rest/api/3/issue":
             captured["fields"] = json.loads(request.content)["fields"]
             return httpx.Response(201, json={"key": "CHK-1"})
+        if path == "/rest/agile/1.0/board":
+            return httpx.Response(200, json={"values": [{"id": 7, "name": "CHK board"}]})
+        if path == "/rest/agile/1.0/board/7/sprint":
+            return httpx.Response(200, json={
+                "isLast": True,
+                "values": [{"id": 41, "name": "Sprint 11"}, {"id": 42, "name": "Sprint 12"}],
+            })
         return httpx.Response(200, json={})
 
     http = httpx.Client(transport=httpx.MockTransport(handler),
@@ -72,4 +83,40 @@ def test_real_client_writes_sprint_to_configured_field():
     payload = build_payloads(Plan.from_mapping(PLAN))
     story = next(p for p in payload if p.external_id == "e/s")
     client.create(story, None)
-    assert captured["fields"].get("customfield_10020") == "Sprint 12"
+    assert captured["fields"].get("customfield_10020") == 42   # numeric id, not name
+
+    # Second use hits the cache — no extra agile calls needed to pass.
+    captured.clear()
+    client.create(story, None)
+    assert captured["fields"].get("customfield_10020") == 42
+
+
+def test_real_client_discovers_sprint_field_when_unconfigured():
+    captured = {}
+
+    def handler(request):
+        path = request.url.path
+        if request.method == "POST" and path == "/rest/api/3/issue":
+            captured["fields"] = json.loads(request.content)["fields"]
+            return httpx.Response(201, json={"key": "CHK-1"})
+        if path == "/rest/api/3/field":
+            return httpx.Response(200, json=[
+                {"id": "customfield_10014", "name": "Epic Link",
+                 "schema": {"custom": "com.pyxis.greenhopper.jira:gh-epic-link"}},
+                {"id": "customfield_10020", "name": "Sprint",
+                 "schema": {"custom": "com.pyxis.greenhopper.jira:gh-sprint"}},
+            ])
+        if path == "/rest/agile/1.0/board":
+            return httpx.Response(200, json={"values": [{"id": 7}]})
+        if path == "/rest/agile/1.0/board/7/sprint":
+            return httpx.Response(200, json={"isLast": True,
+                                             "values": [{"id": 42, "name": "Sprint 12"}]})
+        return httpx.Response(200, json={})
+
+    http = httpx.Client(transport=httpx.MockTransport(handler),
+                        base_url="https://x.atlassian.net", auth=("e", "t"))
+    client = JiraClient("https://x.atlassian.net", "e", "t", "CHK", client=http)
+    payload = build_payloads(Plan.from_mapping(PLAN))
+    story = next(p for p in payload if p.external_id == "e/s")
+    client.create(story, None)
+    assert captured["fields"].get("customfield_10020") == 42

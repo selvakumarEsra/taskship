@@ -129,24 +129,26 @@ def reconcile(
                     state.key(payload.parent_external_id)
                     if payload.parent_external_id else None
                 )
-                report._decide(payload.external_id, "create", "no existing Jira issue")
                 if not dry_run:
                     key = client.create(payload, parent_key)
                     state.record(payload.external_id, key, payload.content_hash,
                                  payload.field_hashes)
+                # Decide only after the create succeeded (or in dry-run), so a
+                # failed create is reported as an error, not counted as created.
+                report._decide(payload.external_id, "create", "no existing Jira issue")
                 continue
 
             entry = state.entry(payload.external_id)
             if entry is None:
-                report._decide(payload.external_id, "update",
-                               "recovered via watermark; re-asserting desired state")
+                reason = "recovered via watermark; re-asserting desired state"
             elif entry.hash != payload.content_hash:
-                report._decide(payload.external_id, "update", "content changed")
+                reason = "content changed"
             else:
                 report._decide(payload.external_id, "skip", "unchanged")
                 continue
 
             _apply_update(payload, key, entry, client, state, report, dry_run)
+            report._decide(payload.external_id, "update", reason)
         except Exception as exc:  # one bad node must not abort the whole sync
             report.errors.append(SyncError(payload.external_id, str(exc)))
 

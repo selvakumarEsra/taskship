@@ -102,6 +102,8 @@ class JiraClient:
         self.backoff_base = backoff_base
         self._sleep = sleep
         self._account_cache: dict[str, str] = {}
+        self._sprint_cache: dict[str, int] = {}
+        self._sprint_field_discovered = False
         self._client = client or httpx.Client(
             base_url=self.base_url, auth=(email, api_token),
             headers={"Accept": "application/json"}, timeout=30.0,
@@ -134,8 +136,8 @@ class JiraClient:
             fields["parent"] = {"key": parent_key}
         if payload.assignee is not None:
             fields["assignee"] = {"accountId": self._account_id(payload.assignee)}
-        if payload.sprint is not None and self.sprint_field:
-            fields[self.sprint_field] = payload.sprint
+        if payload.sprint is not None and self._sprint_field_id():
+            fields[self._sprint_field_id()] = self._sprint_id(payload.sprint)
         resp = self._request("POST", "/rest/api/3/issue", json={"fields": fields})
         return resp.json()["key"]
 
@@ -149,10 +151,65 @@ class JiraClient:
             fields["description"] = changed_fields["description"]
         if "assignee" in changed_fields:
             fields["assignee"] = {"accountId": self._account_id(changed_fields["assignee"])}
-        if "sprint" in changed_fields and self.sprint_field:
-            fields[self.sprint_field] = changed_fields["sprint"]
+        if "sprint" in changed_fields and self._sprint_field_id():
+            fields[self._sprint_field_id()] = self._sprint_id(changed_fields["sprint"])
         if fields:
             self._request("PUT", f"/rest/api/3/issue/{key}", json={"fields": fields})
+
+    # --- REQ-DEL-002: sprint field discovery + name → id resolution -------
+
+    def _sprint_field_id(self) -> Optional[str]:
+        """The Sprint custom field id — configured, else discovered once.
+
+        Jira Cloud has no fixed id for the Sprint field; when ``sprint_field``
+        wasn't configured, look it up from ``/rest/api/3/field`` by schema.
+        Returns ``None`` (sprint sync disabled) when the site has no Sprint field.
+        """
+        if self.sprint_field or self._sprint_field_discovered:
+            return self.sprint_field
+        self._sprint_field_discovered = True
+        resp = self._request("GET", "/rest/api/3/field")
+        for f in resp.json():
+            if f.get("schema", {}).get("custom", "").endswith(":gh-sprint"):
+                self.sprint_field = f["id"]
+                break
+        return self.sprint_field
+
+    def _sprint_id(self, sprint: object) -> int:
+        """Resolve an authored sprint (name or id) to Jira's numeric sprint id.
+
+        The Sprint field rejects strings ("The Sprint (id) must be a number" —
+        verified against Jira Cloud), so a name like "Sprint 12" is resolved via
+        the Agile API: boards for the project → sprints by name. Raises
+        :class:`JiraError` naming the sprint when nothing matches, so the
+        reconciler records a per-node error and continues.
+        """
+        text = str(sprint)
+        if text.isdigit():
+            return int(text)
+        if text in self._sprint_cache:
+            return self._sprint_cache[text]
+        boards = self._request(
+            "GET", "/rest/agile/1.0/board",
+            params={"projectKeyOrId": self.project_key},
+        ).json().get("values", [])
+        for board in boards:
+            start = 0
+            while True:
+                page = self._request(
+                    "GET", f"/rest/agile/1.0/board/{board['id']}/sprint",
+                    params={"startAt": start, "maxResults": 50},
+                ).json()
+                for s in page.get("values", []):
+                    if s.get("name") == text:
+                        self._sprint_cache[text] = s["id"]
+                        return s["id"]
+                if page.get("isLast", True):
+                    break
+                start += len(page.get("values", []))
+        raise JiraError(
+            f"no sprint named '{text}' on any board of project {self.project_key}"
+        )
 
     # --- REQ-DEL-001: resolve an authored assignee to a Jira accountId ----
 
@@ -196,7 +253,7 @@ class JiraClient:
         """
         jql = f'project = "{self.project_key}" AND labels = "{watermark_label(external_id)}"'
         resp = self._request(
-            "POST", "/rest/api/3/search",
+            "POST", "/rest/api/3/search/jql",
             json={"jql": jql, "maxResults": 1, "fields": ["key"]},
         )
         issues = resp.json().get("issues", [])
@@ -242,7 +299,7 @@ class JiraClient:
             fields.append(story_points_field)
         key_list = ", ".join(f'"{k}"' for k in keys)
         resp = self._request(
-            "POST", "/rest/api/3/search",
+            "POST", "/rest/api/3/search/jql",
             json={"jql": f"key in ({key_list})", "maxResults": len(keys),
                   "fields": fields},
         )

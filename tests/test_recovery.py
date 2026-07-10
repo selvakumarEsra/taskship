@@ -42,6 +42,24 @@ def test_a2_unmatched_watermark_is_created_fresh(tmp_path):
     assert state.key("guest-checkout/guest-flow/biz-1") is not None
 
 
+def test_watermark_search_uses_new_search_jql_endpoint():
+    # Jira Cloud removed POST /rest/api/3/search (HTTP 410, CHANGE-2046) —
+    # verified live 2026-07. Recovery must use /rest/api/3/search/jql.
+    import httpx
+    from taskship.jira import JiraClient
+    seen = {}
+
+    def handler(request):
+        seen["path"] = request.url.path
+        return httpx.Response(200, json={"issues": [{"key": "CHK-9"}]})
+
+    http = httpx.Client(transport=httpx.MockTransport(handler),
+                        base_url="https://x.atlassian.net", auth=("e", "t"))
+    client = JiraClient("https://x.atlassian.net", "e", "t", "CHK", client=http)
+    assert client.search_by_external_id("e/s/t") == "CHK-9"
+    assert seen["path"] == "/rest/api/3/search/jql"
+
+
 def test_a3_every_created_issue_carries_watermark_label(tmp_path):
     jira = FakeJira()
     reconcile(Plan.from_mapping(PLAN), jira, StateStore(tmp_path / "s.json"))

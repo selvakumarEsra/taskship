@@ -84,6 +84,10 @@ def build_payloads(
 
         if isinstance(node, Task):
             labels.extend(render_labels(node, templates_dir))
+            # Story containment isn't expressible via Jira's parent (task
+            # parents to the epic) — carry it as a filterable label instead.
+            story_path = ext_id.rsplit("/", 1)[0]
+            labels.append(f"taskship:story:{story_path}")
             description = render_adf(node, templates_dir)
             issue_type = _ISSUE_TYPE["task"]
         elif isinstance(node, Story):
@@ -107,10 +111,16 @@ def build_payloads(
 
 
 def _parent_external_id(external_id: str) -> Optional[str]:
-    """The parent's qualified id, or None for a top-level epic."""
+    """The Jira parent's qualified id, or None for a top-level epic.
+
+    Jira's ``parent`` must point exactly one hierarchy level up, and Story/Task
+    are both level 0 — so a task parents to its *epic*, not its story (verified
+    against Jira Cloud; see TASKSHIP-DOC decisions of record). Story containment
+    is carried by the watermark path and the ``taskship:story:<id>`` label.
+    """
     if "/" not in external_id:
         return None
-    return external_id.rsplit("/", 1)[0]
+    return external_id.split("/", 1)[0]
 
 
 def _dedupe(items: list[str]) -> list[str]:
