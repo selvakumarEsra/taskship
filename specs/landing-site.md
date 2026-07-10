@@ -3,7 +3,7 @@ id: SITE-DOC
 title: TaskShip marketing landing site
 owner: "@selvakumar"
 priority: medium
-version: 1
+version: 2
 ---
 
 <!-- id: SITE-DOC -->
@@ -147,3 +147,59 @@ implementations:
 <!-- id: REQ-SITE-006.A2 -->
 - The install command block is selectable/copyable as text (real text, not an
   image of a command).
+
+<!-- id: REQ-SITE-007 -->
+## Install references MUST point at the published PyPI release
+
+TaskShip 0.1.0 is published on PyPI as `taskship`. Every install reference on
+the site MUST use the real published package name, and the site MUST link to
+the PyPI project page so a reader can verify the release.
+
+implementations:
+  - site/src/components/CTA.astro:CTA
+
+## Acceptance
+<!-- id: REQ-SITE-007.A1 -->
+- Every install command shown on the site reads `pip install taskship`
+  (the name published on PyPI), with no placeholder or pre-release caveat
+  ("coming soon", TestPyPI, git-clone install) remaining anywhere on the page.
+<!-- id: REQ-SITE-007.A2 -->
+- At least one install CTA (hero or final CTA) links to
+  `https://pypi.org/project/taskship/`.
+
+<!-- id: REQ-SITE-008 -->
+## The site MUST include a setup guide from install to a synced Jira product
+
+The site MUST include a guide that walks a first-time user end to end: install
+TaskShip, connect it to their Jira site, define a product plan as code, and
+sync it into a Jira project. The guide is grounded in the shipped CLI — every
+command and configuration key it shows must exist in the `taskship` package.
+
+The guide lives on its own page (`/guide`) rather than a landing-page section,
+so the landing page keeps its one-scroll pitch.
+
+implementations:
+  - site/src/pages/guide.astro:guide
+
+## Acceptance
+<!-- id: REQ-SITE-008.A1 -->
+- The guide is reachable from the landing page via the nav and via a link in
+  the final CTA section.
+<!-- id: REQ-SITE-008.A2 -->
+- The guide presents ordered steps covering, in order: install from PyPI
+  (`pip install taskship`) → scaffold (`taskship init`) → connect Jira →
+  author the plan (`taskship plan "<brief>"` or hand-editing `plan.yaml`) →
+  review (`taskship review`) → preview (`taskship sync --dry-run`) → sync
+  (`taskship sync`) → verify (`taskship status`).
+<!-- id: REQ-SITE-008.A3 -->
+- The Jira-connection step names the real configuration surface: the
+  `jira_project` key in `plan.yaml`, the `JIRA_BASE_URL`, `JIRA_EMAIL`, and
+  `JIRA_TOKEN` environment variables, the optional `JIRA_SPRINT_FIELD`
+  variable, and where to create an Atlassian API token.
+<!-- id: REQ-SITE-008.A4 -->
+- Every command and config snippet in the guide is rendered as selectable,
+  copy-pasteable text, and none references a command, flag, or key that the
+  shipped CLI does not have.
+<!-- id: REQ-SITE-008.A5 -->
+- The guide states that `sync` is idempotent (re-running diffs and updates,
+  never duplicates), consistent with the landing page's claim.

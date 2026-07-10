@@ -1,17 +1,21 @@
 ---
+// Base-prefixed links so the nav works from the landing page and /guide alike
+// (the site serves under the /taskship base path on GitHub Pages).
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 <header class="nav">
   <div class="container nav__inner">
-    <a class="nav__brand" href="#top" aria-label="TaskShip home">
+    <a class="nav__brand" href={`${base}/`} aria-label="TaskShip home">
       <span class="nav__mark" aria-hidden="true">◇</span>
       <span class="nav__name">TaskShip</span>
     </a>
     <nav class="nav__links" aria-label="Primary">
-      <a href="#problem">Why</a>
-      <a href="#how">How it works</a>
-      <a href="#features">Features</a>
+      <a href={`${base}/#problem`}>Why</a>
+      <a href={`${base}/#how`}>How it works</a>
+      <a href={`${base}/#features`}>Features</a>
+      <a href={`${base}/guide/`}>Setup guide</a>
     </nav>
-    <a class="btn btn--primary nav__cta" href="#install">Get started</a>
+    <a class="btn btn--primary nav__cta" href={`${base}/#install`}>Get started</a>
   </div>
 </header>
 

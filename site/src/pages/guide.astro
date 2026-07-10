@@ -1,0 +1,250 @@
+---
+// REQ-SITE-008 — setup guide: install → connect Jira → plan-as-code → sync.
+// Every command and key shown here exists in the shipped `taskship` CLI.
+import Base from '../layouts/Base.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+
+const install = 'pip install taskship';
+const scaffold = 'taskship init';
+const plan = 'taskship plan "your product brief"';
+const review = 'taskship review';
+const dryRun = 'taskship sync --dry-run';
+const sync = 'taskship sync';
+const status = 'taskship status';
+
+const envSnippet = `export JIRA_BASE_URL="https://your-org.atlassian.net"
+export JIRA_EMAIL="you@your-org.com"
+export JIRA_TOKEN="<your Atlassian API token>"
+# Optional — only if you assign sprints from the plan:
+export JIRA_SPRINT_FIELD="customfield_10020"`;
+
+const planSnippet = `product: My Product
+jira_project: PROJ            # your Jira project key
+
+defaults:
+  labels: [taskship]
+
+epics:
+  - id: first-epic
+    title: First epic
+    summary: What this epic delivers.
+    stories:
+      - id: first-story
+        title: First user-facing capability
+        labels: [frontend]
+        tasks:
+          - type: biz-spec
+            title: Define requirements
+          - type: tech-spec
+            subtype: perf
+            title: Meet the latency budget
+            metrics: { baseline: "480ms", target: "200ms" }`;
+---
+<Base
+  title="Setup guide — TaskShip"
+  description="Set up a product in Jira with TaskShip: install from PyPI, connect your Jira site, define the plan as code, and sync it idempotently."
+>
+  <Nav />
+  <main>
+    <section class="section guide">
+      <div class="container guide__container">
+        <span class="eyebrow">Setup guide</span>
+        <h1>From <code>pip install</code> to a planned product in Jira</h1>
+        <p class="guide__lead">
+          Eight steps, one terminal. You'll install TaskShip, connect it to your
+          Jira Cloud site, define your product plan as code, and sync it into a
+          Jira project — idempotently, so you can re-run it forever.
+        </p>
+
+        <ol class="guide__steps">
+          <li>
+            <h2>Install from PyPI</h2>
+            <p>
+              TaskShip needs Python 3.11+. Install the
+              <a href="https://pypi.org/project/taskship/">published package</a>:
+            </p>
+            <div class="cmd">
+              <span><span class="cmd__prompt">$</span>{install}</span>
+              <button data-copy={install} aria-label="Copy install command">Copy</button>
+            </div>
+          </li>
+
+          <li>
+            <h2>Scaffold your project</h2>
+            <p>
+              In an empty directory (or your product repo), scaffold the working
+              files — a sample <code>plan.yaml</code>, a <code>templates/</code>
+              directory with the built-in task templates, and the
+              <code>.taskship/</code> state directory:
+            </p>
+            <div class="cmd">
+              <span><span class="cmd__prompt">$</span>{scaffold}</span>
+              <button data-copy={scaffold} aria-label="Copy init command">Copy</button>
+            </div>
+          </li>
+
+          <li>
+            <h2>Connect your Jira site</h2>
+            <p>
+              Point the plan at your Jira project by setting the
+              <code>jira_project</code> key in <code>plan.yaml</code> to your
+              project key (the prefix in your issue IDs, e.g. <code>PROJ</code>).
+            </p>
+            <p>
+              Then create an API token at
+              <a href="https://id.atlassian.com/manage-profile/security/api-tokens">id.atlassian.com → Security → API tokens</a>
+              and export three environment variables:
+            </p>
+            <pre class="snippet"><code>{envSnippet}</code></pre>
+            <p class="guide__note">
+              <code>JIRA_SPRINT_FIELD</code> is optional — set it to your Jira
+              site's sprint custom field only if your plan assigns sprints.
+            </p>
+          </li>
+
+          <li>
+            <h2>Define the plan as code</h2>
+            <p>
+              Describe your product and let TaskShip decompose the brief into a
+              schema-validated <code>plan.yaml</code>:
+            </p>
+            <div class="cmd">
+              <span><span class="cmd__prompt">$</span>{plan}</span>
+              <button data-copy={plan} aria-label="Copy plan command">Copy</button>
+            </div>
+            <p>
+              Or edit <code>plan.yaml</code> by hand — it's the epic → story →
+              task tree, and it's the single source of truth:
+            </p>
+            <pre class="snippet"><code>{planSnippet}</code></pre>
+          </li>
+
+          <li>
+            <h2>Review the tree</h2>
+            <p>Render the epic → story → task hierarchy and sanity-check it:</p>
+            <div class="cmd">
+              <span><span class="cmd__prompt">$</span>{review}</span>
+              <button data-copy={review} aria-label="Copy review command">Copy</button>
+            </div>
+            <p class="guide__note">
+              Because the plan is a file, this is the moment for a normal code
+              review — diff it, comment on it, merge it.
+            </p>
+          </li>
+
+          <li>
+            <h2>Preview the sync</h2>
+            <p>
+              See exactly what would be created, updated, or skipped in Jira —
+              without writing anything:
+            </p>
+            <div class="cmd">
+              <span><span class="cmd__prompt">$</span>{dryRun}</span>
+              <button data-copy={dryRun} aria-label="Copy dry-run command">Copy</button>
+            </div>
+          </li>
+
+          <li>
+            <h2>Sync to Jira</h2>
+            <p>Reconcile the plan into your Jira project:</p>
+            <div class="cmd">
+              <span><span class="cmd__prompt">$</span>{sync}</span>
+              <button data-copy={sync} aria-label="Copy sync command">Copy</button>
+            </div>
+            <p class="guide__note">
+              Sync is <b>idempotent</b>: re-running it diffs the plan against the
+              board and updates what changed — it never duplicates an epic, story,
+              or task. Change the plan, sync again, repeat.
+            </p>
+          </li>
+
+          <li>
+            <h2>Verify</h2>
+            <p>Check the plan against what's live on the board:</p>
+            <div class="cmd">
+              <span><span class="cmd__prompt">$</span>{status}</span>
+              <button data-copy={status} aria-label="Copy status command">Copy</button>
+            </div>
+          </li>
+        </ol>
+
+        <div class="guide__next card">
+          <h2>Where to go from here</h2>
+          <p>
+            Day-to-day, the same plan drives <code>taskship board</code> (a Kanban
+            view by live Jira status), <code>taskship standup</code> (what changed
+            since the last run, per assignee), <code>taskship assign</code>
+            (reviewable assignee changes in the plan), and
+            <code>taskship report</code> (an executive HTML status report).
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  .guide__container { max-width: 760px; }
+  .guide h1 { margin-top: 18px; }
+  .guide h1 code { font-family: var(--font-mono); font-size: 0.85em; color: var(--brand-ink); }
+  .guide__lead { color: var(--ink-muted); font-size: 1.12rem; margin-top: 18px; }
+
+  .guide__steps {
+    list-style: none;
+    counter-reset: step;
+    margin: 48px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 44px;
+  }
+  .guide__steps > li {
+    counter-increment: step;
+    position: relative;
+    padding-left: 56px;
+  }
+  .guide__steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--brand-soft);
+    color: var(--brand-ink);
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+  .guide__steps h2 { font-size: 1.3rem; }
+  .guide__steps p { color: var(--ink-muted); margin-top: 10px; }
+  .guide__steps p a { color: var(--brand-ink); text-decoration: underline; }
+  .guide__steps .cmd { margin-top: 14px; }
+  .guide__steps .cmd span { white-space: nowrap; overflow-x: auto; }
+  .guide__steps code {
+    font-family: var(--font-mono); font-size: 0.85em; color: var(--brand-ink);
+    background: var(--brand-soft); padding: 1px 5px; border-radius: 5px;
+  }
+  .guide__note { font-size: 0.95rem; color: var(--ink-faint); }
+
+  .snippet {
+    margin: 14px 0 0;
+    background: var(--term-bg);
+    color: var(--term-ink);
+    border: 1px solid #1c2236;
+    border-radius: 10px;
+    padding: 16px 18px;
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    line-height: 1.55;
+    overflow-x: auto;
+    user-select: text;
+  }
+  .snippet code { background: none; color: inherit; padding: 0; font-size: inherit; }
+
+  .guide__next { margin-top: 56px; }
+  .guide__next p { color: var(--ink-muted); margin-top: 10px; }
+</style>
