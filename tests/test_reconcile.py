@@ -87,4 +87,11 @@ def test_a4_parent_linkage_and_ordering(tmp_path):
     by_ext = {ext: parent for ext, parent in jira.create_calls}
     assert by_ext["guest-checkout"] is None                       # epic: no parent
     assert by_ext["guest-checkout/guest-flow"] == "CHK-101"        # story → epic key
-    assert by_ext["guest-checkout/guest-flow/biz-1"] == "CHK-102"  # task → story key
+    # Task parents to the EPIC (Jira rejects task→story: both level 0);
+    # story containment travels as a label instead.
+    assert by_ext["guest-checkout/guest-flow/biz-1"] == "CHK-101"
+    task_payload = next(p for p, _pk in
+                        [(jira.issues[k]["payload"], jira.issues[k]["parent"])
+                         for k in jira.issues]
+                        if p.external_id == "guest-checkout/guest-flow/biz-1")
+    assert "taskship:story:guest-checkout/guest-flow" in task_payload.labels

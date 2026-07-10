@@ -37,6 +37,14 @@ Scope of this document is the v0 MVP contract. v0 decisions of record:
 - **Conflict policy:** on divergence between plan and board, TaskShip surfaces the
   conflict for a human — it MUST NOT silently overwrite hand edits.
 - **Deletions:** never automatic — a removed node is flagged, not deleted.
+- **Task linkage (verified against Jira Cloud 2026-07):** Jira's `parent` must
+  point exactly one hierarchy level up, and Story/Task are both level 0 — so a
+  Task cannot parent to a Story. Tasks therefore parent to their **Epic**
+  (keeping them first-class: sprintable, pointable, board cards), and the
+  story⇄task containment is encoded in the `taskship:<epic>/<story>/<task>`
+  watermark plus a visible `taskship:story:<epic>/<story>` label so it stays
+  filterable in Jira. Sub-task-under-Story remains a possible future
+  `task_linkage: subtask` mode.
 
 Domain model (mirrors Jira's issue-type hierarchy 1:1): a product contains Epics
 (Jira level 1); each Epic contains Stories (level 0), including DevOps stories
@@ -160,8 +168,10 @@ implementations:
 - Editing exactly one task's title and re-syncing issues exactly one update call,
   targeting only the changed fields of that one issue; all other nodes skip.
 <!-- id: REQ-TS-005.A4 -->
-- A story is created with its epic set as `parent`, and a task with its story (or
-  epic) as `parent`; a child is never created before its parent exists.
+- A story is created with its epic set as `parent`, and a task with its **epic**
+  as `parent` (Jira rejects task→story parenting; the task carries a
+  `taskship:story:<id>` label for containment); a parent is always created
+  before its children.
 
 <!-- id: REQ-TS-006 -->
 ## Sync MUST recover the id→key mapping when local state is missing
