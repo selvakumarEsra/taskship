@@ -37,6 +37,13 @@ Scope of this document is the v0 MVP contract. v0 decisions of record:
 - **Conflict policy:** on divergence between plan and board, TaskShip surfaces the
   conflict for a human — it MUST NOT silently overwrite hand edits.
 - **Deletions:** never automatic — a removed node is flagged, not deleted.
+- **Sync state is version-controlled:** `.taskship/state.json` (id→key mapping
+  + per-field hashes) is committed alongside `plan.yaml`, not gitignored. The
+  conflict policy (REQ-TS-011) depends on the prior hashes: a fresh checkout
+  without them would silently re-assert the plan over hand edits instead of
+  surfacing conflicts. Watermark recovery (REQ-TS-006) remains the backstop for
+  genuinely lost state; storing hashes as Jira issue entity properties is noted
+  as future work.
 - **Task linkage (verified against Jira Cloud 2026-07):** Jira's `parent` must
   point exactly one hierarchy level up, and Story/Task are both level 0 — so a
   Task cannot parent to a Story. Tasks therefore parent to their **Epic**

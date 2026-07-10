@@ -54,6 +54,11 @@ def init_project(root: str | Path) -> dict[str, Path]:
 
     state_dir = root / ".taskship"
     state_dir.mkdir(exist_ok=True)
+    # state.json is meant to be committed (conflict detection needs its hashes
+    # on every checkout); ceremony caches are machine-local.
+    gitignore = state_dir / ".gitignore"
+    if not gitignore.exists():
+        gitignore.write_text("standup.json\n", encoding="utf-8")
 
     templates_dir = root / "templates"
     templates_dir.mkdir(exist_ok=True)

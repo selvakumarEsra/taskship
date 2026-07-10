@@ -18,8 +18,11 @@ venv/
 .coverage
 htmlcov/
 
-# TaskShip local state (per-project sync state, not source)
-.taskship/state.json
+# TaskShip sync state (.taskship/state.json) is deliberately COMMITTED:
+# it carries the id→key mapping and per-field hashes that conflict detection
+# (REQ-TS-011) needs on every checkout — see TASKSHIP-DOC decisions of record.
+# Machine-local ceremony caches stay ignored:
+.taskship/standup.json
 
 # OS
 .DS_Store
