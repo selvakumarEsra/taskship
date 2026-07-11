@@ -134,6 +134,48 @@ def test_doors004_test_case_sections_and_scope_required():
     assert "scope" in str(exc.value)
 
 
+def test_doors007_uat_issue_sections_and_labels():
+    task = Task(id="u1", title="Totals wrong", type="uat-issue",
+                fields={"expected": "one total", "actual": "two totals"})
+    headings = " ".join(_headings(render_adf(task))).lower()
+    assert "expected behaviour" in headings
+    assert "actual behaviour" in headings
+    assert "steps to reproduce" in headings
+    assert "severity" in headings
+    assert "environment" in headings
+    labels = render_labels(task)
+    assert "taskship:type:uat-issue" in labels
+    assert "bug" in labels
+    # UAT issues block their story; they are not ceremony triage items (A3).
+    assert "taskship:triage" not in labels
+
+
+def test_doors007_uat_issue_refuses_without_required():
+    # expected present, actual missing → refuse naming the missing field.
+    task = Task(id="u2", title="x", type="uat-issue",
+                fields={"expected": "one total"})
+    with pytest.raises(TemplateError) as exc:
+        render_adf(task)
+    assert "actual" in str(exc.value) and "u2" in str(exc.value)
+
+
+def test_doors007_uat_issue_fork_overrides_builtin(tmp_path):
+    forked = tmp_path / "templates"
+    forked.mkdir()
+    (forked / "uat-issue.yaml").write_text(
+        "type: uat-issue\n"
+        "version: 99\n"
+        "labels: ['taskship:type:uat-issue', 'bug']\n"
+        "required: []\n"
+        "sections:\n"
+        "  - heading: CUSTOM UAT SECTION\n"
+        "    field: expected\n"
+    )
+    task = Task(id="u1", title="T", type="uat-issue")
+    adf = render_adf(task, templates_dir=forked)
+    assert "CUSTOM UAT SECTION" in " ".join(_headings(adf))
+
+
 def test_doors001_ops_observation_fork_overrides_builtin(tmp_path):
     forked = tmp_path / "templates"
     forked.mkdir()

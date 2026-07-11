@@ -47,6 +47,7 @@ def test_a1_init_scaffolds_project(tmp_path):
     forked = tmp_path / "templates"
     assert (forked / "ops-observation.yaml").exists()
     assert (forked / "test-case.yaml").exists()
+    assert (forked / "uat-issue.yaml").exists()
 
 
 def test_a2_review_renders_tree(tmp_path):

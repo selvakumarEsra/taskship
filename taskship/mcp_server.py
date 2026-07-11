@@ -105,6 +105,26 @@ def derive_testplan() -> dict:
 
 
 @mcp.tool()
+def raise_issue(title: str, story: Optional[str] = None,
+                epic: Optional[str] = None, expected: Optional[str] = None,
+                actual: Optional[str] = None, steps: Optional[str] = None,
+                severity: Optional[str] = None, environment: Optional[str] = None,
+                test: Optional[str] = None) -> dict:
+    """Park a UAT issue under the story it was found against (plan-only).
+
+    @implements REQ-DOORS-009 — same engine as `taskship raise`; exactly one of
+    `story`/`epic` must be given. Returns the new task id and the story it was
+    parked under (`<epic-id>-uat` for a cross-story `epic` finding).
+    """
+    result = _s().raise_issue(
+        title, story=story, epic=epic, expected=expected, actual=actual,
+        steps=steps, severity=severity, environment=environment, test=test,
+    )
+    _s().save()
+    return result
+
+
+@mcp.tool()
 def decompose_brief(text: str) -> dict:
     """Decompose a product brief into a structured plan (no Jira writes)."""
     from .decompose import decompose_brief as _decompose

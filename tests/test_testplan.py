@@ -115,3 +115,24 @@ def test_a4_cli_testplan_validates_and_writes(tmp_path):
     plan, _ = load_plan(tmp_path / "plan.yaml")  # validates on load
     tc = [t for t in plan.epics[0].stories[0].tasks if t.type == "test-case"]
     assert len(tc) == 1
+
+
+def test_a3_uat_fallback_stories_never_get_a_test_case(tmp_path):
+    """REQ-DOORS-005.A3: kind: uat defect buckets are skipped like ops lanes."""
+    (tmp_path / "plan.yaml").write_text(
+        "product: P\n"
+        "jira_project: PROJ\n"
+        "epics:\n"
+        "  - id: e\n"
+        "    title: E\n"
+        "    stories:\n"
+        "      - id: real-story\n"
+        "        title: Real behaviour\n"
+        "      - id: e-uat\n"
+        "        title: UAT issues for E\n"
+        "        kind: uat\n"
+    )
+    s = TaskShipSession(tmp_path)
+    result = s.derive_testplan()
+    assert result["added"] == ["e/real-story/real-story-e2e"]
+    assert not any("e-uat" in qid for qid in result["added"] + result["skipped"])

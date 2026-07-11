@@ -172,7 +172,9 @@ implementations:
   test manager has already edited.
 <!-- id: REQ-DOORS-005.A3 -->
 - A story added (or renamed with a pinned id) after a previous run gets its
-  test-case task on the next run; stories in the ops intake lane never get one.
+  test-case task on the next run; stories in the ops intake lane and UAT
+  fallback stories (`kind: ops` or `kind: uat`) never get one — defect buckets
+  are not story behaviour to regression-test.
 <!-- id: REQ-DOORS-005.A4 -->
 - The command is plan-only (no Jira calls) and the resulting plan validates
   against the schema.

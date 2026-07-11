@@ -1,0 +1,31 @@
+# UAT issue template (REQ-DOORS-007). The UAT door files acceptance-test
+# defects as typed tasks parked under the story they were found against;
+# `expected` and `actual` are required so no un-actionable defect reaches the
+# story's developer. The plain `bug` label is what Jira board filters key on;
+# a UAT issue carries NO `taskship:triage` label — it blocks its story, it is
+# not a ceremony triage item like an ops observation.
+# Fork this file into your own templates/ directory to match your team's
+# definition-of-ready without touching TaskShip's core.
+type: uat-issue
+version: 1
+labels:
+  - "taskship:type:uat-issue"
+  - "bug"
+# Keys under task.fields that MUST be present, or the template refuses to render.
+required: [expected, actual]
+sections:
+  - heading: Expected behaviour
+    field: expected
+    placeholder: "What acceptance expected to happen."
+  - heading: Actual behaviour
+    field: actual
+    placeholder: "What actually happened."
+  - heading: Steps to reproduce
+    field: steps
+    placeholder: "The path to the defect."
+  - heading: Severity
+    field: severity
+    placeholder: "How badly it blocks acceptance."
+  - heading: Environment
+    field: environment
+    placeholder: "Build, browser, data set."

@@ -181,6 +181,48 @@ def testplan(ctx: click.Context) -> None:
         click.echo(f"  + {qid}")
 
 
+@cli.command(name="raise")
+@click.argument("title")
+@click.option("--story", "story", help="Story id the defect was found against.")
+@click.option("--epic", "epic", help="Epic id (parks in its <epic-id>-uat story).")
+@click.option("--expected", help="Expected behaviour (definition-of-ready).")
+@click.option("--actual", help="Actual behaviour observed.")
+@click.option("--steps", help="Steps to reproduce.")
+@click.option("--severity", help="How badly it blocks acceptance.")
+@click.option("--environment", help="Build, browser, or data set.")
+@click.option("--test", help="Failed regression test-case id (adds a test label).")
+@click.pass_context
+def raise_issue(ctx: click.Context, title: str, story: Optional[str],
+                epic: Optional[str], expected: Optional[str],
+                actual: Optional[str], steps: Optional[str],
+                severity: Optional[str], environment: Optional[str],
+                test: Optional[str]) -> None:
+    """Park a UAT issue under the story it was found against (plan-only).
+
+    @implements REQ-DOORS-008
+    """
+    from .session import PlanEditError, TaskShipSession
+
+    root = ctx.obj["root"]
+    if not (root / "plan.yaml").exists():
+        raise click.ClickException(f"no plan.yaml in {root} — run `taskship init` first")
+    session = TaskShipSession(root)
+    try:
+        result = session.raise_issue(
+            title, story=story, epic=epic, expected=expected, actual=actual,
+            steps=steps, severity=severity, environment=environment, test=test,
+        )
+    except PlanEditError as exc:
+        raise click.ClickException(str(exc))
+    session.save()
+    if result["story_created"]:
+        click.echo(f"Created the UAT fallback story {result['story']}.")
+    click.echo(
+        f"Raised UAT issue {result['id']} under {result['story']} — "
+        "reaches Jira on the next `sync`."
+    )
+
+
 @cli.command()
 @click.option("--dry-run", is_flag=True, help="Preview create/update/skip; no writes.")
 @click.pass_context

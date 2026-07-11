@@ -136,19 +136,21 @@ class TaskShipSession:
 
         @implements REQ-DOORS-005
 
-        For every story whose ``kind`` is not ``ops``, ensures exactly one task
-        of type ``test-case`` with the deterministic id ``<story-id>-e2e`` and
-        ``scope`` pre-filled from the story title. Existing test-case tasks
-        (even ones the test manager edited) are never modified or duplicated, so
-        a re-run on an unchanged plan changes nothing. Plan-only, no Jira calls.
-        Returns the qualified ids added and skipped.
+        For every story whose ``kind`` is neither ``ops`` nor ``uat``, ensures
+        one task of type ``test-case`` with the deterministic id
+        ``<story-id>-e2e`` and ``scope`` pre-filled from the story title.
+        Intake lanes and UAT defect buckets are skipped — they hold events, not
+        story behaviour to regression-test (REQ-DOORS-005.A3). Existing
+        test-case tasks (even ones the test manager edited) are never modified
+        or duplicated, so a re-run on an unchanged plan changes nothing.
+        Plan-only, no Jira calls. Returns the qualified ids added and skipped.
         """
         added: list[str] = []
         skipped: list[str] = []
         for epic in self.raw.get("epics", []):
             eid = _node_id(epic)
             for story in epic.get("stories", []):
-                if story.get("kind") == "ops":
+                if story.get("kind") in ("ops", "uat"):
                     continue
                 sid = _node_id(story)
                 tc_id = f"{sid}-e2e"
@@ -172,6 +174,107 @@ class TaskShipSession:
                 added.append(qid)
         self._revalidate()
         return {"added": added, "skipped": skipped}
+
+    def raise_issue(self, title: str, story: Optional[str] = None,
+                    epic: Optional[str] = None, expected: Optional[str] = None,
+                    actual: Optional[str] = None, steps: Optional[str] = None,
+                    severity: Optional[str] = None,
+                    environment: Optional[str] = None,
+                    test: Optional[str] = None) -> dict:
+        """Park one uat-issue task under the story it was found against.
+
+        @implements REQ-DOORS-008
+
+        Exactly one of ``story`` / ``epic`` must be given. ``--story`` parks the
+        issue directly under that story; ``--epic`` parks it in the epic's
+        ``<epic-id>-uat`` fallback story, creating that story (kind ``uat``) on
+        first use without touching any existing node. Every raised task carries
+        a ``taskship:story:<parking-story-id>`` label (and a
+        ``taskship:test:<id>`` label when ``test`` names the failed regression
+        case), merged so plan/epic default labels still cascade in and the
+        template's ``taskship:type:uat-issue`` + ``bug`` labels attach at render.
+        Like ``observe`` this is an event: plan-only (no Jira calls), never
+        idempotent — the same title twice appends two distinct tasks with unique
+        ids. An unknown ``story``/``epic`` id raises ``PlanEditError`` naming the
+        id before any mutation, so ``plan.yaml`` is left untouched; on an invalid
+        result the edit is reverted (``PlanValidationError``) and nothing is
+        written.
+        """
+        if bool(story) == bool(epic):
+            raise PlanEditError(
+                "exactly one of --story / --epic must be given")
+
+        if story is not None:
+            epic_node, story_node = self._find_story_globally(story)
+            epic_id = _node_id(epic_node)
+            parking_story_id = _node_id(story_node)
+            story_created = False
+        else:
+            epic_node = self._find_epic(epic)  # raises PlanEditError naming id
+            epic_id = _node_id(epic_node)
+            story_node, parking_story_id, story_created = \
+                self._ensure_uat_story(epic_node, epic)
+
+        issue_id = f"uat-{uuid.uuid4().hex[:8]}"
+        task = CommentedMap()
+        task["id"] = issue_id
+        task["type"] = "uat-issue"
+        task["title"] = title
+        # Name the parking story (and any failed test case) so the story's UAT
+        # defects are one Jira filter away; merge so plan/epic labels cascade in.
+        labels = CommentedSeq([f"taskship:story:{parking_story_id}"])
+        if test:
+            labels.append(f"taskship:test:{test}")
+        task["labels"] = labels
+        task["labels_merge"] = True
+        fields = CommentedMap()
+        if expected:
+            fields["expected"] = expected
+        if actual:
+            fields["actual"] = actual
+        if steps:
+            fields["steps"] = steps
+        if severity:
+            fields["severity"] = severity
+        if environment:
+            fields["environment"] = environment
+        task["fields"] = fields
+        story_node.setdefault("tasks", CommentedSeq()).append(task)
+        self._revalidate()
+        qid = f"{epic_id}/{parking_story_id}/{issue_id}"
+        return {"added": [qid], "id": issue_id, "story": parking_story_id,
+                "story_created": story_created}
+
+    def _find_story_globally(self, story_id: str) -> tuple[CommentedMap, CommentedMap]:
+        """Return the ``(epic, story)`` whose story local id is ``story_id``.
+
+        @implements REQ-DOORS-008 — a ``--story`` finding is parked under its
+        story wherever it lives; an unknown id raises naming the id (A4).
+        """
+        for epic in self.raw.get("epics", []):
+            for story in epic.get("stories", []):
+                if _node_id(story) == story_id:
+                    return epic, story
+        raise PlanEditError(f"no story with id '{story_id}'")
+
+    def _ensure_uat_story(self, epic_node: CommentedMap,
+                          epic_id: str) -> tuple[CommentedMap, str, bool]:
+        """Return the epic's ``<epic-id>-uat`` fallback ``(story, id, created)``.
+
+        @implements REQ-DOORS-008 — a cross-story finding parks in a fallback
+        story created once (kind ``uat``) without modifying any existing node.
+        """
+        fallback_id = f"{epic_id}-uat"
+        for story in epic_node.get("stories", []):
+            if _node_id(story) == fallback_id:
+                return story, fallback_id, False
+        story = CommentedMap()
+        story["id"] = fallback_id
+        story["title"] = f"UAT findings — {epic_node.get('title', epic_id)}"
+        story["kind"] = "uat"
+        story["tasks"] = CommentedSeq()
+        epic_node.setdefault("stories", CommentedSeq()).append(story)
+        return story, fallback_id, True
 
     def _ensure_intake_lane(self) -> tuple[CommentedMap, bool]:
         """Return the intake ``(story, lane_created)``, creating the lane once.
