@@ -125,6 +125,19 @@ def raise_issue(title: str, story: Optional[str] = None,
 
 
 @mcp.tool()
+def get_knowledge(epic_id: Optional[str] = None) -> dict:
+    """Retrieve curated domain knowledge for the agent door.
+
+    @implements REQ-KNOW-003 — same engine as `taskship knowledge`. Given an epic
+    id, returns that epic's knowledge text plus the project-wide domain text;
+    given no id, returns the list of available knowledge files. An unknown id is
+    not an error — the result is empty and names the available files.
+    """
+    from .knowledge import get_knowledge as _get_knowledge
+    return _get_knowledge(_s().root, epic_id)
+
+
+@mcp.tool()
 def decompose_brief(text: str) -> dict:
     """Decompose a product brief into a structured plan (no Jira writes)."""
     from .decompose import decompose_brief as _decompose

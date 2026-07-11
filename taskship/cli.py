@@ -62,7 +62,8 @@ def cli(ctx: click.Context, root: str) -> None:
 def init(ctx: click.Context) -> None:
     """Scaffold plan.yaml, templates/, and .taskship/."""
     paths = init_project(ctx.obj["root"])
-    click.echo(f"Scaffolded plan.yaml, templates/, .taskship/ in {ctx.obj['root']}")
+    click.echo(f"Scaffolded plan.yaml, templates/, knowledge/, .taskship/ in "
+               f"{ctx.obj['root']}")
     click.echo(f"  edit {paths['plan']} then `taskship review`")
 
 
@@ -245,6 +246,20 @@ def raise_issue(ctx: click.Context, title: str, story: Optional[str],
         f"Raised UAT issue {result['id']} under {result['story']} — "
         "reaches Jira on the next `sync`."
     )
+
+
+@cli.command()
+@click.argument("epic_id", required=False)
+@click.pass_context
+def knowledge(ctx: click.Context, epic_id: Optional[str]) -> None:
+    """List knowledge files, or print one epic's knowledge (with domain.md).
+
+    @implements REQ-KNOW-003
+    """
+    from .knowledge import format_knowledge, get_knowledge
+
+    result = get_knowledge(ctx.obj["root"], epic_id)
+    click.echo(format_knowledge(result))
 
 
 @cli.command()

@@ -48,6 +48,46 @@ def test_a1_init_scaffolds_project(tmp_path):
     assert (forked / "ops-observation.yaml").exists()
     assert (forked / "test-case.yaml").exists()
     assert (forked / "uat-issue.yaml").exists()
+    # the knowledge/ convention is scaffolded with a domain.md starter (KNOW-DOC).
+    assert (tmp_path / "knowledge" / "domain.md").exists()
+
+
+def test_a2_init_is_idempotent_for_knowledge(tmp_path):
+    runner = CliRunner()
+    runner.invoke(cli, ["--dir", str(tmp_path), "init"])
+    (tmp_path / "knowledge" / "domain.md").write_text("hand-edited")
+    runner.invoke(cli, ["--dir", str(tmp_path), "init"])   # second run
+    assert (tmp_path / "knowledge" / "domain.md").read_text() == "hand-edited"
+
+
+# --- KNOW-DOC REQ-KNOW-003: `taskship knowledge` front door ----------------
+
+def test_knowledge_lists_available_files(tmp_path):
+    kdir = tmp_path / "knowledge"
+    kdir.mkdir()
+    (kdir / "checkout.md").write_text("body")
+    result = CliRunner().invoke(cli, ["--dir", str(tmp_path), "knowledge"])
+    assert result.exit_code == 0, result.output
+    assert "checkout" in result.output
+
+
+def test_knowledge_shows_epic_with_domain(tmp_path):
+    kdir = tmp_path / "knowledge"
+    kdir.mkdir()
+    (kdir / "checkout.md").write_text("EPIC-BODY")
+    (kdir / "domain.md").write_text("DOMAIN-BODY")
+    result = CliRunner().invoke(cli, ["--dir", str(tmp_path), "knowledge", "checkout"])
+    assert result.exit_code == 0, result.output
+    assert "EPIC-BODY" in result.output and "DOMAIN-BODY" in result.output
+
+
+def test_knowledge_unknown_id_is_not_an_error(tmp_path):
+    kdir = tmp_path / "knowledge"
+    kdir.mkdir()
+    (kdir / "known.md").write_text("k")
+    result = CliRunner().invoke(cli, ["--dir", str(tmp_path), "knowledge", "missing"])
+    assert result.exit_code == 0, result.output    # clean, not an error
+    assert "missing" in result.output and "known" in result.output
 
 
 def test_a2_review_renders_tree(tmp_path):

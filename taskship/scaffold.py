@@ -2,7 +2,8 @@
 
 Creates a reviewable starting point: a sample ``plan.yaml``, a ``templates/``
 directory seeded with the built-in task templates (so a team can fork them in
-place), and the ``.taskship/`` state directory.
+place), the ``.taskship/`` state directory, and a ``knowledge/`` directory with
+a ``domain.md`` starter explaining the per-epic knowledge convention (KNOW-DOC).
 """
 from __future__ import annotations
 
@@ -71,4 +72,11 @@ def init_project(root: str | Path) -> dict[str, Path]:
     if not plan_path.exists():
         plan_path.write_text(SAMPLE_PLAN, encoding="utf-8")
 
-    return {"plan": plan_path, "templates": templates_dir, "state_dir": state_dir}
+    # Scaffold the knowledge/ convention (KNOW-DOC REQ-KNOW-004): a domain.md
+    # starter so greenfield projects with no Jira to seed from still discover it.
+    # Idempotent like everything else here — an existing file is never touched.
+    from .knowledge import scaffold_knowledge
+    knowledge_domain = scaffold_knowledge(root)
+
+    return {"plan": plan_path, "templates": templates_dir, "state_dir": state_dir,
+            "knowledge": knowledge_domain}

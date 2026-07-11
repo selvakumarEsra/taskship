@@ -23,6 +23,7 @@ from typing import Optional, Union
 from ruamel.yaml.comments import CommentedMap
 
 from .identity import slug
+from .knowledge import KnowledgeSeed, SeedReport, flatten_adf, seed_knowledge
 from .model import Plan, PlanValidationError, Task
 from .payload import build_payloads
 from .plan_io import dump_plan
@@ -73,6 +74,7 @@ class ImportedIssue:
     status: Optional[str]
     status_done: bool
     has_description: bool
+    description: str = ""   # flattened plain text, for knowledge seeding (KNOW-DOC)
 
 
 @dataclass
@@ -89,6 +91,11 @@ class OnboardResult:
     catch_all_used: bool = False
     replaced: bool = False                          # --force overwrote a live plan
     state_entries: int = 0
+    # Knowledge seeding (KNOW-DOC): the per-epic seeds build_plan extracted, and
+    # the write/skip outcome onboard_project records after the commit succeeds.
+    knowledge_seeds: list[KnowledgeSeed] = field(default_factory=list)
+    knowledge_written: list[str] = field(default_factory=list)
+    knowledge_skipped: list[str] = field(default_factory=list)
 
     @property
     def skipped_by_reason(self) -> dict[str, int]:
@@ -115,6 +122,7 @@ def parse_issue(raw: dict) -> ImportedIssue:
         status=status_field.get("name"),
         status_done=(category == "done"),
         has_description=bool(f.get("description")),
+        description=flatten_adf(f.get("description")),
     )
 
 
@@ -222,13 +230,17 @@ def build_plan(
         {_EPIC_TYPE: epics_open, _STORY_TYPE: stories_open,
          _TASK_TYPE: tasks_open}[iss.issue_type].append(iss)
 
-    # Epics.
+    # Epics. Seed a knowledge draft per real (imported) epic — the synthetic
+    # catch-all epic has no Jira content to extract, so it gets none (KNOW-DOC).
+    seeds_by_epic_id: dict[str, KnowledgeSeed] = {}
     for iss in epics_open:
         eid = slug(iss.key)
         node = _node(eid, iss.summary, iss.labels, stories=[])
         epic_order.append(node)
         epics_by_key[iss.key] = node
         key_by_qid[eid] = iss.key
+        seeds_by_epic_id[eid] = KnowledgeSeed(
+            epic_id=eid, title=iss.summary, description=iss.description)
 
     # Stories: attach to their Jira parent epic, else the catch-all epic.
     for iss in stories_open:
@@ -238,6 +250,7 @@ def build_plan(
         if parent_epic is not None:
             parent_epic["stories"].append(node)
             epic_id = parent_epic["id"]
+            seeds_by_epic_id[epic_id].story_titles.append(iss.summary)
         else:
             ensure_catch_all_epic()
             catch_all_epic["stories"].append(node)
@@ -288,6 +301,8 @@ def build_plan(
         empty_epics=empty_epics,
         downgraded=downgraded,
         catch_all_used=catch_all_used,
+        knowledge_seeds=[seeds_by_epic_id[e["id"]] for e in epic_order
+                         if e["id"] in seeds_by_epic_id],
     )
     return plan_map, key_by_qid, result
 
@@ -359,9 +374,16 @@ def onboard_project(
         state.record(external_id, jira_key, content_hash, field_hashes)
     state.save()
 
+    # Seed knowledge files last, sharing the plan's atomicity: this runs only
+    # after the import fully succeeded, so a failed onboard writes none (KNOW-DOC
+    # REQ-KNOW-002.A4). Existing files are left byte-identical and reported skipped.
+    seed_report: SeedReport = seed_knowledge(root, result.knowledge_seeds)
+
     result.plan = plan_obj
     result.replaced = replaced and force
     result.state_entries = len(adoptions)
+    result.knowledge_written = seed_report.written
+    result.knowledge_skipped = seed_report.skipped
     return result
 
 
@@ -382,6 +404,12 @@ def format_onboard_summary(result: OnboardResult) -> str:
         f"{c['tasks']} task(s) from {result.project_key} "
         f"— adopted {result.state_entries} issue key(s)."
     )
+    if result.knowledge_written or result.knowledge_skipped:
+        lines.append(
+            f"Seeded {len(result.knowledge_written)} knowledge file(s) under "
+            f"knowledge/ ({len(result.knowledge_skipped)} left untouched — "
+            "curate them, then review with `taskship knowledge`)."
+        )
 
     if result.skipped:
         lines.append("")

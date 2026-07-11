@@ -30,7 +30,7 @@ from taskship.state import StateStore
 # --- fakes / fixtures ------------------------------------------------------
 
 def raw(key, itype, summary="S", parent=None, labels=None,
-        status="To Do", category="new"):
+        status="To Do", category="new", description=None):
     """A raw Jira issue as /rest/api/3/search/jql returns it."""
     fields = {
         "summary": summary,
@@ -40,7 +40,19 @@ def raw(key, itype, summary="S", parent=None, labels=None,
     }
     if parent:
         fields["parent"] = {"key": parent}
+    if description is not None:
+        fields["description"] = description
     return {"key": key, "fields": fields}
+
+
+def adf(*paragraphs):
+    """An ADF document as Jira Cloud returns for a description field."""
+    return {
+        "version": 1, "type": "doc",
+        "content": [{"type": "paragraph",
+                     "content": [{"type": "text", "text": p}]}
+                    for p in paragraphs],
+    }
 
 
 class FakeOnboardJira:
@@ -304,3 +316,65 @@ def test_a2_summary_flags_likely_noise(tmp_path):
     assert "Empty epic" in result.empty_epics
     assert "PROJ-2" in result.done_leftovers
     assert "LIKELY NOISE" in text
+
+
+# --- KNOW-DOC REQ-KNOW-002: onboarding seeds knowledge files ---------------
+
+SEEDABLE = [
+    raw("PROJ-1", "Epic", "Checkout revamp",
+        description=adf("Rework the checkout to reduce cart abandonment.")),
+    raw("PROJ-2", "Story", "Guest flow", parent="PROJ-1"),
+    raw("PROJ-3", "Task", "Define requirements", parent="PROJ-2"),
+]
+
+
+def test_a1_onboard_seeds_a_knowledge_file_per_epic(tmp_path):
+    result = onboard_project(FakeOnboardJira(SEEDABLE), "PROJ", tmp_path)
+    kfile = tmp_path / "knowledge" / "proj-1.md"
+    assert kfile.exists()
+    text = kfile.read_text()
+    assert "# Checkout revamp" in text                       # epic title
+    assert "Rework the checkout to reduce cart abandonment." in text  # description
+    assert "- Guest flow" in text                            # story inventory
+    assert "## Domain terms" in text                         # placeholder sections
+    assert "## Intake questions" in text
+    assert "## Known failure patterns" in text
+    assert result.knowledge_written == ["proj-1"]
+
+
+def test_a2_reonboard_does_not_overwrite_existing_knowledge(tmp_path):
+    onboard_project(FakeOnboardJira(SEEDABLE), "PROJ", tmp_path)
+    kfile = tmp_path / "knowledge" / "proj-1.md"
+    kfile.write_text("# Hand-curated\n\nKeep me.")
+    result = onboard_project(FakeOnboardJira(SEEDABLE), "PROJ", tmp_path, force=True)
+    assert kfile.read_text() == "# Hand-curated\n\nKeep me."   # byte-identical
+    assert result.knowledge_skipped == ["proj-1"]
+    assert result.knowledge_written == []
+
+
+def test_a3_seeding_is_deterministic_across_two_onboards(tmp_path):
+    a = tmp_path / "a"
+    b = tmp_path / "b"
+    onboard_project(FakeOnboardJira(SEEDABLE), "PROJ", a)
+    onboard_project(FakeOnboardJira(SEEDABLE), "PROJ", b)
+    assert (a / "knowledge" / "proj-1.md").read_text() == \
+        (b / "knowledge" / "proj-1.md").read_text()
+
+
+def test_a4_failed_onboard_writes_no_knowledge_files(tmp_path):
+    with pytest.raises(RuntimeError):
+        onboard_project(BoomJira(), "PROJ", tmp_path)
+    assert not (tmp_path / "knowledge").exists()
+
+
+def test_a4_summary_reports_seeded_knowledge_counts(tmp_path):
+    result = onboard_project(FakeOnboardJira(SEEDABLE), "PROJ", tmp_path)
+    assert "Seeded 1 knowledge file(s)" in format_onboard_summary(result)
+
+
+def test_a1_catch_all_epic_is_not_seeded(tmp_path):
+    # A homeless story routes to the synthetic catch-all epic, which has no Jira
+    # content to extract and so gets no knowledge file.
+    issues = [raw("PROJ-2", "Story", "Homeless story")]
+    onboard_project(FakeOnboardJira(issues), "PROJ", tmp_path)
+    assert not (tmp_path / "knowledge" / f"{CATCH_ALL_EPIC_ID}.md").exists()
