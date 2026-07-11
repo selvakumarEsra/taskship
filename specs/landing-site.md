@@ -3,7 +3,7 @@ id: SITE-DOC
 title: TaskShip marketing landing site
 owner: "@selvakumar"
 priority: medium
-version: 2
+version: 3
 ---
 
 <!-- id: SITE-DOC -->
@@ -203,3 +203,76 @@ implementations:
 <!-- id: REQ-SITE-008.A5 -->
 - The guide states that `sync` is idempotent (re-running diffs and updates,
   never duplicates), consistent with the landing page's claim.
+
+<!-- id: REQ-SITE-009 -->
+## The landing page MUST present the four doors as the core mental model
+
+TaskShip is no longer one persona's tool: the product ships four doors into
+one plan (product, ops, test, UAT — DOORS-DOC) plus Jira onboarding and
+knowledge files (ONBOARD-DOC, KNOW-DOC). The landing page must sell that
+whole-team story without overclaiming beyond the shipped CLI.
+
+implementations:
+
+## Acceptance
+<!-- id: REQ-SITE-009.A1 -->
+- A dedicated landing-page section presents all four doors, each naming its
+  persona (PM/product owner, BAU/ops, test manager, UAT tester), its verb
+  (`plan`, `observe`, `testplan`, `raise`), and its outcome in one scannable
+  card per door.
+<!-- id: REQ-SITE-009.A2 -->
+- The section's copy is consistent with shipped behaviour: observations land
+  in a triage lane for the ceremony; test cases derive idempotently per
+  story; UAT issues park under the story they block with a `bug` label —
+  no claim the CLI does not honour.
+<!-- id: REQ-SITE-009.A3 -->
+- The hero or how-it-works acknowledges BOTH entry paths: start fresh
+  (brief → `plan.yaml`) or onboard an existing Jira project
+  (`taskship onboard <KEY>`), and mentions that onboarding adopts existing
+  issues so the first sync never duplicates.
+
+<!-- id: REQ-SITE-010 -->
+## The guide MUST cover onboarding, the door verbs, and knowledge files
+
+The setup guide currently ends at `status`; the shipped product goes much
+further. The guide must carry a reader from either entry path through the
+whole-team daily flow.
+
+implementations:
+
+## Acceptance
+<!-- id: REQ-SITE-010.A1 -->
+- The guide presents the existing-project path: `taskship onboard <KEY>` →
+  review/prune the imported `plan.yaml` and seeded `knowledge/` files →
+  `taskship sync --dry-run` showing zero creates — positioned as an
+  alternative to the greenfield `init` path, with copyable commands.
+<!-- id: REQ-SITE-010.A2 -->
+- The guide documents each door verb with a copyable command and its
+  contract: `observe` (plan-only, triage lane), `testplan` (idempotent, one
+  e2e test case per story), `raise` (`--story`/`--epic`, bug label), and
+  `knowledge` (list/show curated context); none references a flag or
+  behaviour the shipped CLI lacks.
+<!-- id: REQ-SITE-010.A3 -->
+- Agent positioning matches VISION-DOC: the MCP server is presented as the
+  agent front door over the same engine, with no claim that TaskShip itself
+  schedules ceremonies, calls an LLM, or hosts anything.
+
+<!-- id: REQ-SITE-011 -->
+## The guide MUST stay navigable as it grows
+
+The guide is now multiple flows (greenfield, existing-project, daily doors);
+a linear scroll no longer serves a reader who arrived for one of them.
+
+implementations:
+
+## Acceptance
+<!-- id: REQ-SITE-011.A1 -->
+- The guide opens with an in-page table of contents linking to each flow's
+  section; every section heading is anchor-linkable.
+<!-- id: REQ-SITE-011.A2 -->
+- The landing-page nav includes the doors section; all nav links work from
+  both the landing page and the guide (base-path-aware).
+<!-- id: REQ-SITE-011.A3 -->
+- The additions preserve the existing visual system (light SaaS theme, one
+  type/colour system) and remain readable at a 375px viewport with no
+  horizontal overflow.
