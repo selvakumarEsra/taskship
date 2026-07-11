@@ -1,0 +1,14 @@
+# Imported pass-through type (REQ-ONBOARD-003).
+# `taskship onboard` assigns this type to every task whose type cannot be
+# inferred from an existing `taskship:type:*` label. It is a pass-through:
+# it declares no sections and no required fields, and `pass_through: true`
+# tells build_payloads to omit the description from the sync payload entirely,
+# so sync NEVER rewrites the hand-written Jira description of an adopted issue
+# (REQ-ONBOARD-003.A2). Structural fields (title, labels, hierarchy) still sync.
+type: imported
+version: 1
+pass_through: true
+labels:
+  - "taskship:type:imported"
+required: []
+sections: []

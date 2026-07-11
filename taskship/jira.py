@@ -280,6 +280,35 @@ class JiraClient:
             out["description"] = f["description"]
         return out
 
+    # --- REQ-ONBOARD-001: read the whole project for onboarding -----------
+
+    def search_project_issues(self) -> list[dict]:
+        """Every epic/story/task in the project, paginated (REQ-ONBOARD-001).
+
+        @implements REQ-ONBOARD-001
+
+        Walks the token-paginated ``/rest/api/3/search/jql`` endpoint until the
+        last page, so a project larger than Jira's page-size limit is imported
+        whole. Requests only the fields onboarding needs — summary, issue type,
+        parent, labels, status (for done-filtering and noise flags), and
+        description (presence only, never rewritten for imported tasks).
+        """
+        jql = f'project = "{self.project_key}" ORDER BY created ASC'
+        fields = ["summary", "issuetype", "parent", "labels", "status", "description"]
+        issues: list[dict] = []
+        next_token: Optional[str] = None
+        while True:
+            body: dict = {"jql": jql, "maxResults": 100, "fields": fields}
+            if next_token is not None:
+                body["nextPageToken"] = next_token
+            resp = self._request("POST", "/rest/api/3/search/jql", json=body)
+            data = resp.json()
+            issues.extend(data.get("issues", []))
+            next_token = data.get("nextPageToken")
+            if not next_token or data.get("isLast", False):
+                break
+        return issues
+
     # --- REQ-TS-010: reverse sync — live board state ----------------------
 
     def get_board_status(

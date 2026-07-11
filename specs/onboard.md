@@ -92,7 +92,10 @@ implementations:
 - Imported tasks whose type cannot be inferred from existing
   `taskship:type:*` labels get the built-in type `imported`; a task that DOES
   carry a `taskship:type:*` label (a previously TaskShip-managed issue) keeps
-  that type.
+  that type when its template renders with the recoverable fields — a kept
+  type whose template's required fields cannot be recovered from the import
+  is downgraded to `imported` and reported in the summary, never allowed to
+  make the first sync unrenderable.
 <!-- id: REQ-ONBOARD-003.A2 -->
 - Sync never includes a description field in the payload of an
   `imported`-type task: after onboard + sync, every imported issue's Jira

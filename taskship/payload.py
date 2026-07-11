@@ -18,7 +18,7 @@ from typing import Optional, Union
 from .cascade import resolve_plan
 from .identity import iter_nodes, local_id, qualified_id
 from .model import Epic, Plan, Story, Task
-from .templates import render_adf, render_labels
+from .templates import render_adf, render_labels, renders_description
 
 # Jira issue-type hierarchy: Epic (level 1), Story/Task (level 0).
 _ISSUE_TYPE = {"epic": "Epic", "story": "Story", "task": "Task"}
@@ -88,7 +88,13 @@ def build_payloads(
             # parents to the epic) — carry it as a filterable label instead.
             story_path = ext_id.rsplit("/", 1)[0]
             labels.append(f"taskship:story:{story_path}")
-            description = render_adf(node, templates_dir)
+            # A pass-through type (``imported``) never contributes a description,
+            # so sync leaves the adopted issue's Jira description untouched
+            # (REQ-ONBOARD-003.A2). Structural fields still flow below.
+            if renders_description(node.type, templates_dir):
+                description = render_adf(node, templates_dir)
+            else:
+                description = None
             issue_type = _ISSUE_TYPE["task"]
         elif isinstance(node, Story):
             description = None

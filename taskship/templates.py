@@ -79,6 +79,20 @@ def _check_required(task: Task, template: dict) -> None:
             )
 
 
+def renders_description(task_type: str, templates_dir: Optional[Union[str, Path]] = None) -> bool:
+    """Whether ``task_type``'s template contributes a Jira description (REQ-ONBOARD-003).
+
+    @implements REQ-ONBOARD-003
+
+    A *pass-through* type (``pass_through: true`` in its template — the
+    ``imported`` type onboarding assigns) declares no description of its own, so
+    the reconciler omits ``description`` from the payload entirely and sync never
+    rewrites the issue's hand-written Jira description (A2).
+    """
+    template = _load_template(task_type, _as_path(templates_dir))
+    return not template.get("pass_through", False)
+
+
 def render_labels(task: Task, templates_dir: Optional[Union[str, Path]] = None) -> list[str]:
     """Labels a task carries into Jira: template labels + type/subtype (A4).
 

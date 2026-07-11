@@ -67,6 +67,30 @@ def init(ctx: click.Context) -> None:
 
 
 @cli.command()
+@click.argument("jira_key")
+@click.option("--force", is_flag=True,
+              help="Replace an existing plan.yaml/state.json with a fresh import.")
+@click.pass_context
+def onboard(ctx: click.Context, jira_key: str, force: bool) -> None:
+    """Import an existing Jira project into plan-as-code (one-time bootstrap).
+
+    @implements REQ-ONBOARD-001
+    @implements REQ-ONBOARD-005
+    """
+    from .onboard import OnboardError, format_onboard_summary, onboard_project
+
+    root = ctx.obj["root"]
+    client = _build_client({"project": jira_key})
+    try:
+        result = onboard_project(
+            client, jira_key, root, force=force, templates_dir=_templates_dir(root)
+        )
+    except OnboardError as exc:
+        raise click.ClickException(str(exc))
+    click.echo(format_onboard_summary(result))
+
+
+@cli.command()
 @click.argument("brief")
 @click.option("--force", is_flag=True, help="Overwrite an existing plan.yaml.")
 @click.pass_context
