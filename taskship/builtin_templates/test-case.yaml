@@ -1,0 +1,26 @@
+# End-to-end regression test-case template (REQ-DOORS-004). The test door
+# derives one of these per non-ops story; `scope` names the story behaviour
+# under test and is required. The derived task also carries a
+# `taskship:story:<story-id>` label (added by `taskship testplan`) so the
+# regression suite for a story is one Jira filter away.
+# Fork this file into your own templates/ directory to match your team's
+# definition-of-ready without touching TaskShip's core.
+type: test-case
+version: 1
+labels:
+  - "taskship:type:test-case"
+# Keys under task.fields that MUST be present, or the template refuses to render.
+required: [scope]
+sections:
+  - heading: Scope
+    field: scope
+    placeholder: "The story behaviour under test."
+  - heading: Preconditions
+    field: preconditions
+    placeholder: "State/data the run assumes."
+  - heading: Steps
+    field: steps
+    placeholder: "The regression walkthrough."
+  - heading: Expected result
+    field: expected_result
+    placeholder: "What a pass looks like."

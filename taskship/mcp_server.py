@@ -80,6 +80,31 @@ def get_board_status() -> list[dict]:
 
 
 @mcp.tool()
+def observe(title: str, impact: Optional[str] = None,
+            evidence: Optional[str] = None, action: Optional[str] = None) -> dict:
+    """Append a production observation to the ops intake lane (plan-only).
+
+    @implements REQ-DOORS-006 — same engine as `taskship observe`; returns the
+    affected node id(s) and whether the intake lane was just created.
+    """
+    result = _s().observe(title, impact=impact, evidence=evidence, action=action)
+    _s().save()
+    return result
+
+
+@mcp.tool()
+def derive_testplan() -> dict:
+    """Derive one e2e test-case task per non-ops story, idempotently (plan-only).
+
+    @implements REQ-DOORS-006 — same engine as `taskship testplan`; returns the
+    node ids added and skipped.
+    """
+    result = _s().derive_testplan()
+    _s().save()
+    return result
+
+
+@mcp.tool()
 def decompose_brief(text: str) -> dict:
     """Decompose a product brief into a structured plan (no Jira writes)."""
     from .decompose import decompose_brief as _decompose

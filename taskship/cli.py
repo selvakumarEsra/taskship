@@ -134,6 +134,54 @@ def assign(ctx: click.Context, node_id: str, assignee: str) -> None:
 
 
 @cli.command()
+@click.argument("title")
+@click.option("--impact", help="Who/what is affected (definition-of-ready).")
+@click.option("--evidence", help="Logs, links, or metrics.")
+@click.option("--action", help="A suggested first action.")
+@click.pass_context
+def observe(ctx: click.Context, title: str, impact: Optional[str],
+            evidence: Optional[str], action: Optional[str]) -> None:
+    """Append a production observation to the ops intake lane (plan-only).
+
+    @implements REQ-DOORS-002
+    """
+    from .session import TaskShipSession
+
+    root = ctx.obj["root"]
+    if not (root / "plan.yaml").exists():
+        raise click.ClickException(f"no plan.yaml in {root} — run `taskship init` first")
+    session = TaskShipSession(root)
+    result = session.observe(title, impact=impact, evidence=evidence, action=action)
+    session.save()
+    if result["lane_created"]:
+        click.echo("Created the ops-intake lane.")
+    click.echo(f"Recorded observation {result['id']} — reaches Jira on the next `sync`.")
+
+
+@cli.command()
+@click.pass_context
+def testplan(ctx: click.Context) -> None:
+    """Derive one e2e test-case task per non-ops story (idempotent, plan-only).
+
+    @implements REQ-DOORS-005
+    """
+    from .session import TaskShipSession
+
+    root = ctx.obj["root"]
+    if not (root / "plan.yaml").exists():
+        raise click.ClickException(f"no plan.yaml in {root} — run `taskship init` first")
+    session = TaskShipSession(root)
+    result = session.derive_testplan()
+    session.save()
+    click.echo(
+        f"testplan: added {len(result['added'])}, "
+        f"skipped {len(result['skipped'])} existing test-case task(s)."
+    )
+    for qid in result["added"]:
+        click.echo(f"  + {qid}")
+
+
+@cli.command()
 @click.option("--dry-run", is_flag=True, help="Preview create/update/skip; no writes.")
 @click.pass_context
 def sync(ctx: click.Context, dry_run: bool) -> None:
@@ -173,11 +221,18 @@ def status(ctx: click.Context) -> None:
 @click.pass_context
 def board(ctx: click.Context) -> None:
     """Kanban view: tasks grouped by live Jira status (no sprint needed)."""
-    from .ceremonies import board_columns
+    from .ceremonies import board_columns, triage_observations
     root = ctx.obj["root"]
     plan = _load_plan_or_die(root)
     state = StateStore(root / ".taskship" / "state.json")
     rows = build_status_view(plan, _build_client(_config(plan)), state)
+
+    triage = triage_observations(rows)
+    if triage:
+        click.echo(f"\n  TRIAGE — observations awaiting prioritization  ({len(triage)})")
+        for it in triage:
+            key = f"{it.jira} " if it.jira else ""
+            click.echo(f"    · {key}{it.title}")
 
     for column, items in board_columns(rows).items():
         click.echo(f"\n  {column.upper()}  ({len(items)})")

@@ -43,6 +43,10 @@ def test_a1_init_scaffolds_project(tmp_path):
     # the scaffolded plan is itself valid
     from taskship.plan_io import load_plan
     load_plan(tmp_path / "plan.yaml")
+    # every built-in template — including the ops/test doors — is forked in place.
+    forked = tmp_path / "templates"
+    assert (forked / "ops-observation.yaml").exists()
+    assert (forked / "test-case.yaml").exists()
 
 
 def test_a2_review_renders_tree(tmp_path):

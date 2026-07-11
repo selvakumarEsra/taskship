@@ -10,13 +10,14 @@ the same file a human edits.
 """
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 from typing import Optional
 
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
 from .connect import OfflineClient, build_client
-from .identity import local_id
+from .identity import INTAKE_EPIC_ID, INTAKE_STORY_ID, local_id
 from .model import Plan
 from .plan_io import dump_plan, load_plan
 from .reconcile import reconcile
@@ -95,6 +96,106 @@ class TaskShipSession:
         self._revalidate()
         return self.get_plan()
 
+    # --- doors: ops intake + test derivation -----------------------------
+
+    def observe(self, title: str, impact: Optional[str] = None,
+                evidence: Optional[str] = None,
+                action: Optional[str] = None) -> dict:
+        """Append one ops-observation task to the intake lane, plan-only.
+
+        @implements REQ-DOORS-002
+
+        Creates the ``ops-intake`` epic + ``kind: ops`` story on first use
+        without touching any existing node. Each call appends a distinct task
+        with a unique id (observations are events, not idempotent nodes), so a
+        later sync never collides. Makes no Jira calls. On an invalid result the
+        edit is reverted (``PlanValidationError``) and nothing is written.
+        """
+        story, lane_created = self._ensure_intake_lane()
+        obs_id = f"obs-{uuid.uuid4().hex[:8]}"
+        task = CommentedMap()
+        task["id"] = obs_id
+        task["type"] = "ops-observation"
+        task["title"] = title
+        fields = CommentedMap()
+        fields["observation"] = title
+        if impact:
+            fields["impact"] = impact
+        if evidence:
+            fields["evidence"] = evidence
+        if action:
+            fields["suggested_action"] = action
+        task["fields"] = fields
+        story.setdefault("tasks", CommentedSeq()).append(task)
+        self._revalidate()
+        qid = f"{INTAKE_EPIC_ID}/{INTAKE_STORY_ID}/{obs_id}"
+        return {"added": [qid], "id": obs_id, "lane_created": lane_created}
+
+    def derive_testplan(self) -> dict:
+        """Ensure one e2e test-case task per non-ops story, idempotently.
+
+        @implements REQ-DOORS-005
+
+        For every story whose ``kind`` is not ``ops``, ensures exactly one task
+        of type ``test-case`` with the deterministic id ``<story-id>-e2e`` and
+        ``scope`` pre-filled from the story title. Existing test-case tasks
+        (even ones the test manager edited) are never modified or duplicated, so
+        a re-run on an unchanged plan changes nothing. Plan-only, no Jira calls.
+        Returns the qualified ids added and skipped.
+        """
+        added: list[str] = []
+        skipped: list[str] = []
+        for epic in self.raw.get("epics", []):
+            eid = _node_id(epic)
+            for story in epic.get("stories", []):
+                if story.get("kind") == "ops":
+                    continue
+                sid = _node_id(story)
+                tc_id = f"{sid}-e2e"
+                qid = f"{eid}/{sid}/{tc_id}"
+                tasks = story.setdefault("tasks", CommentedSeq())
+                if any(_node_id(t) == tc_id for t in tasks):
+                    skipped.append(qid)
+                    continue
+                task = CommentedMap()
+                task["id"] = tc_id
+                task["type"] = "test-case"
+                task["title"] = f"E2E regression: {story.get('title')}"
+                # Name the source story so its regression suite is one filter
+                # away; merge so plan/epic default labels still cascade in.
+                task["labels"] = CommentedSeq([f"taskship:story:{sid}"])
+                task["labels_merge"] = True
+                fields = CommentedMap()
+                fields["scope"] = story.get("title")
+                task["fields"] = fields
+                tasks.append(task)
+                added.append(qid)
+        self._revalidate()
+        return {"added": added, "skipped": skipped}
+
+    def _ensure_intake_lane(self) -> tuple[CommentedMap, bool]:
+        """Return the intake ``(story, lane_created)``, creating the lane once.
+
+        @implements REQ-DOORS-002 — appends a fresh ``ops-intake`` epic with a
+        ``kind: ops`` story when absent; existing nodes are left untouched.
+        """
+        for epic in self.raw.get("epics", []):
+            if _node_id(epic) == INTAKE_EPIC_ID:
+                for story in epic.get("stories", []):
+                    if story.get("kind") == "ops":
+                        return story, False
+                story = _make_intake_story()
+                epic.setdefault("stories", CommentedSeq()).append(story)
+                return story, True
+        story = _make_intake_story()
+        epic = CommentedMap()
+        epic["id"] = INTAKE_EPIC_ID
+        epic["title"] = "Ops intake"
+        epic["summary"] = "Production observations awaiting triage."
+        epic["stories"] = CommentedSeq([story])
+        self.raw.setdefault("epics", CommentedSeq()).append(epic)
+        return story, True
+
     def save(self) -> None:
         dump_plan(self.raw, self.plan_path)
 
@@ -155,6 +256,16 @@ class TaskShipSession:
 def _node_id(node: dict) -> str:
     from .identity import slug
     return node.get("id") or slug(node.get("title", ""))
+
+
+def _make_intake_story() -> CommentedMap:
+    """A fresh ``kind: ops`` story to hold observations (REQ-DOORS-002)."""
+    story = CommentedMap()
+    story["id"] = INTAKE_STORY_ID
+    story["title"] = "Production observations"
+    story["kind"] = "ops"
+    story["tasks"] = CommentedSeq()
+    return story
 
 
 def _to_commented(data: dict):

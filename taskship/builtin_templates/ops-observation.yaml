@@ -1,0 +1,26 @@
+# Ops observation template (REQ-DOORS-001). The ops door files production
+# observations as typed tasks in the intake lane; `observation` and `impact`
+# are required so no un-actionable ticket reaches Jira. `taskship:triage` marks
+# it un-prioritized — the board lane and Jira filters find it by that label.
+# Fork this file into your own templates/ directory to match your team's
+# definition-of-ready without touching TaskShip's core.
+type: ops-observation
+version: 1
+labels:
+  - "taskship:type:ops-observation"
+  - "taskship:triage"
+# Keys under task.fields that MUST be present, or the template refuses to render.
+required: [observation, impact]
+sections:
+  - heading: Observation
+    field: observation
+    placeholder: "What was seen in production."
+  - heading: Impact
+    field: impact
+    placeholder: "Who/what is affected."
+  - heading: Evidence
+    field: evidence
+    placeholder: "Logs, links, metrics."
+  - heading: Suggested action
+    field: suggested_action
+    placeholder: "A first idea; the ceremony decides."

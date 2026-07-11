@@ -96,6 +96,61 @@ def test_a4_labels_include_type_and_subtype():
     assert "taskship:subtype:perf" in labels
 
 
+def test_doors001_ops_observation_sections_and_labels():
+    task = Task(id="o1", title="Checkout 500s spiking", type="ops-observation",
+                fields={"observation": "5xx on /checkout", "impact": "guests blocked"})
+    headings = " ".join(_headings(render_adf(task))).lower()
+    assert "observation" in headings
+    assert "impact" in headings
+    assert "evidence" in headings
+    assert "suggested action" in headings
+    labels = render_labels(task)
+    assert "taskship:type:ops-observation" in labels
+    assert "taskship:triage" in labels
+
+
+def test_doors001_ops_observation_refuses_without_required():
+    # observation present, impact missing → refuse naming the missing field.
+    task = Task(id="o2", title="x", type="ops-observation",
+                fields={"observation": "seen"})
+    with pytest.raises(TemplateError) as exc:
+        render_adf(task)
+    assert "impact" in str(exc.value) and "o2" in str(exc.value)
+
+
+def test_doors004_test_case_sections_and_scope_required():
+    task = Task(id="tc1", title="E2E regression: Guest flow", type="test-case",
+                fields={"scope": "Guest checkout flow"})
+    headings = " ".join(_headings(render_adf(task))).lower()
+    assert "scope" in headings
+    assert "precondition" in headings
+    assert "steps" in headings
+    assert "expected result" in headings
+    assert "taskship:type:test-case" in render_labels(task)
+
+    missing = Task(id="tc2", title="T", type="test-case")
+    with pytest.raises(TemplateError) as exc:
+        render_adf(missing)
+    assert "scope" in str(exc.value)
+
+
+def test_doors001_ops_observation_fork_overrides_builtin(tmp_path):
+    forked = tmp_path / "templates"
+    forked.mkdir()
+    (forked / "ops-observation.yaml").write_text(
+        "type: ops-observation\n"
+        "version: 99\n"
+        "labels: ['taskship:type:ops-observation', 'taskship:triage']\n"
+        "required: []\n"
+        "sections:\n"
+        "  - heading: CUSTOM OBS SECTION\n"
+        "    field: observation\n"
+    )
+    task = Task(id="o1", title="T", type="ops-observation")
+    adf = render_adf(task, templates_dir=forked)
+    assert "CUSTOM OBS SECTION" in " ".join(_headings(adf))
+
+
 def test_a5_forked_template_dir_overrides_builtin(tmp_path):
     forked = tmp_path / "templates"
     forked.mkdir()

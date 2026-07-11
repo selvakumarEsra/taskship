@@ -10,8 +10,9 @@ from taskship.reconcile import reconcile
 from taskship.status import build_status_view
 from taskship.ceremonies import (
     board_columns, is_done, is_blocked, standup_snapshot, standup_diff,
-    render_standup_md, build_report, render_report_html,
+    render_standup_md, build_report, render_report_html, triage_observations,
 )
+from taskship.payload import build_payloads
 from taskship.cli import cli
 from tests.fakes import FakeJira
 
@@ -86,6 +87,72 @@ def test_board_cli_read_only(tmp_path, monkeypatch):
     assert result.exit_code == 0, result.output
     assert "IN PROGRESS" in result.output and "Task two" in result.output
     assert (tmp_path / "plan.yaml").read_bytes() == before  # read-only
+
+
+# --- REQ-DOORS-003 triage lane ----------------------------------------------
+
+_INTAKE_PLAN = {
+    "product": "Checkout", "jira_project": "CHK",
+    "epics": [
+        {"id": "e", "title": "Product", "stories": [
+            {"id": "s", "title": "Flow", "tasks": [
+                {"id": "t1", "title": "Work item", "type": "biz-spec"}]}]},
+        {"id": "ops-intake", "title": "Ops intake", "stories": [
+            {"id": "observations", "title": "Observations", "kind": "ops", "tasks": [
+                {"id": "obs-1", "title": "500s on checkout", "type": "ops-observation",
+                 "fields": {"observation": "5xx", "impact": "guests"}}]}]},
+    ],
+}
+
+
+def test_doors003_a1_triage_group_separates_observations():
+    rows = build_status_view(Plan.from_mapping(_INTAKE_PLAN), FakeJira(),
+                             StateStore("/nonexistent.json"))
+    triage = triage_observations(rows)
+    assert [r.title for r in triage] == ["500s on checkout"]
+    # the observation is NOT double-counted in the status columns.
+    cols = board_columns(rows)
+    all_titles = [r.title for items in cols.values() for r in items]
+    assert "500s on checkout" not in all_titles
+    assert "Work item" in all_titles
+
+
+def test_doors003_a3_empty_intake_renders_clean():
+    plan = {"product": "P", "jira_project": "PR", "epics": [
+        {"id": "e", "title": "E", "stories": [
+            {"id": "s", "title": "S", "tasks": [
+                {"id": "t", "title": "T", "type": "biz-spec"}]}]}]}
+    rows = build_status_view(Plan.from_mapping(plan), FakeJira(),
+                             StateStore("/nonexistent.json"))
+    assert triage_observations(rows) == []  # empty, not an error
+
+
+def test_doors003_a1_board_cli_shows_triage(tmp_path, monkeypatch):
+    yaml = (
+        "product: Checkout\njira_project: CHK\nepics:\n"
+        "  - id: e\n    title: Product\n    stories:\n"
+        "      - id: s\n        title: Flow\n        tasks:\n"
+        "          - id: t1\n            title: Work item\n            type: biz-spec\n"
+        "  - id: ops-intake\n    title: Ops intake\n    stories:\n"
+        "      - id: observations\n        title: Observations\n        kind: ops\n        tasks:\n"
+        "          - id: obs-1\n            title: 500s on checkout\n            type: ops-observation\n"
+        "            fields: {observation: 5xx, impact: guests}\n"
+    )
+    (tmp_path / "plan.yaml").write_text(yaml)
+    monkeypatch.setattr("taskship.cli._build_client", lambda cfg: FakeJira())
+    result = CliRunner().invoke(cli, ["--dir", str(tmp_path), "board"])
+    assert result.exit_code == 0, result.output
+    assert "TRIAGE" in result.output and "500s on checkout" in result.output
+
+
+# --- REQ-DOORS-003 A2: sync never writes Jira priority ----------------------
+
+def test_doors003_a2_sync_payloads_never_carry_priority():
+    plan = Plan.from_mapping(_INTAKE_PLAN)
+    for payload in build_payloads(plan):
+        assert "priority" not in payload.fields
+        assert "priority" not in payload.field_hashes
+        assert all("priority" not in label.lower() for label in payload.labels)
 
 
 # --- REQ-DEL-004 standup ----------------------------------------------------

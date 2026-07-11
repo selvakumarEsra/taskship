@@ -11,9 +11,11 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Optional
 
+from .identity import INTAKE_EPIC_ID
 from .status import StatusRow
 
 _DONE = {"done", "closed", "resolved", "complete", "completed"}
+_INTAKE_PREFIX = INTAKE_EPIC_ID + "/"
 _BACKLOG = "Backlog"
 _COLUMN_ORDER = ["Backlog", "To Do", "In Progress", "In Review", "Done"]
 
@@ -42,10 +44,27 @@ def board_columns(rows: list[StatusRow]) -> "OrderedDict[str, list[StatusRow]]":
     for row in rows:
         if row.kind != "task":
             continue
+        if row.external_id.startswith(_INTAKE_PREFIX):
+            continue  # intake observations render in the triage lane (DOORS-003)
         column = _BACKLOG if (row.jira is None or not row.status) else row.status
         cols.setdefault(column, []).append(row)
     # Drop empty predefined columns except Backlog so the board stays tight.
     return OrderedDict((k, v) for k, v in cols.items() if v or k == _BACKLOG)
+
+
+def triage_observations(rows: list[StatusRow]) -> list[StatusRow]:
+    """Un-prioritized observations from the ops intake lane, for the ceremony.
+
+    @implements REQ-DOORS-003
+
+    The board renders these in a dedicated triage group, separate from the
+    status-grouped product work. An empty intake lane yields an empty list, so
+    the caller renders nothing — never an error.
+    """
+    return [
+        r for r in rows
+        if r.kind == "task" and r.external_id.startswith(_INTAKE_PREFIX)
+    ]
 
 
 # --- REQ-DEL-004: standup ----------------------------------------------------

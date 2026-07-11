@@ -22,6 +22,12 @@ Node = Union[Epic, Story, Task]
 
 _SLUG_STRIP = re.compile(r"[^a-z0-9]+")
 
+# Reserved identity of the ops intake lane (REQ-DOORS-002): observations land in
+# an ``ops-intake`` epic under a ``kind: ops`` story so both the ``observe``
+# engine and the board triage view can find the lane by these stable ids.
+INTAKE_EPIC_ID = "ops-intake"
+INTAKE_STORY_ID = "observations"
+
 
 def slug(text: str) -> str:
     """Deterministically kebab-case ``text``.
