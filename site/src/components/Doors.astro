@@ -1,0 +1,76 @@
+---
+// REQ-SITE-009 — the four doors into one plan. Each card names a persona, its
+// CLI verb, and the outcome. Copy honours shipped behaviour only (DOORS-DOC):
+// observations land unprioritized in a triage lane; test cases derive one per
+// story, idempotently; UAT issues park under the story they block with a `bug`
+// label (a Task, never a Jira Bug type).
+const doors = [
+  {
+    tag: 'Product door',
+    verb: 'taskship plan',
+    persona: 'PM / product owner',
+    outcome: 'A product brief becomes a reviewable plan.yaml, then syncs to Jira idempotently — re-runs never duplicate.',
+  },
+  {
+    tag: 'Ops door',
+    verb: 'taskship observe',
+    persona: 'BAU / support',
+    outcome: 'File a production observation into the intake lane. It lands unprioritized in a triage lane for the ceremony — TaskShip never writes Jira priority.',
+  },
+  {
+    tag: 'Test door',
+    verb: 'taskship testplan',
+    persona: 'Test manager',
+    outcome: 'Derive one end-to-end regression test-case per story, with a deterministic id. Re-running changes nothing — never a duplicate.',
+  },
+  {
+    tag: 'UAT door',
+    verb: 'taskship raise',
+    persona: 'UAT tester',
+    outcome: 'Park an acceptance defect under the story it blocks (or an --epic fallback story). Carries a plain bug label — a Task, not a Jira Bug type.',
+  },
+];
+---
+<section class="section" id="doors">
+  <div class="container">
+    <div class="section__head">
+      <span class="eyebrow">Four doors, one plan</span>
+      <h2>The whole team plans into the same tree.</h2>
+      <p>
+        TaskShip is no longer one persona's tool. Four doors write into one
+        reviewable plan.yaml, and the same idempotent sync carries everyone's
+        work to Jira.
+      </p>
+    </div>
+
+    <div class="grid grid--4">
+      {doors.map((d) => (
+        <div class="card door">
+          <span class="door__tag">{d.tag}</span>
+          <code class="door__verb">{d.verb}</code>
+          <p class="door__persona">{d.persona}</p>
+          <p class="door__outcome">{d.outcome}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .door { display: flex; flex-direction: column; }
+  .door__tag {
+    align-self: flex-start;
+    font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--brand-ink); background: var(--brand-soft);
+    border: 1px solid #dcdcf7; border-radius: 999px; padding: 4px 10px;
+  }
+  .door__verb {
+    display: inline-block; align-self: flex-start; margin-top: 14px;
+    font-family: var(--font-mono); font-size: 0.85rem; color: var(--brand-ink);
+    background: var(--bg-soft); border: 1px solid var(--border-strong);
+    padding: 3px 9px; border-radius: 7px;
+  }
+  .door__persona { margin-top: 12px; font-weight: 700; font-size: 0.98rem; }
+  .door__outcome { margin-top: 6px; color: var(--ink-muted); font-size: 0.94rem; }
+</style>

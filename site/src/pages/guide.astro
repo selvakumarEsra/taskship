@@ -1,10 +1,15 @@
 ---
-// REQ-SITE-008 — setup guide: install → connect Jira → plan-as-code → sync.
-// Every command and key shown here exists in the shipped `taskship` CLI.
+// REQ-SITE-008 — greenfield setup: install → connect Jira → plan-as-code → sync.
+// REQ-SITE-010 — existing-project onboarding, the four door verbs, knowledge
+//   files, and the agent (MCP) door.
+// REQ-SITE-011 — in-page TOC + anchor-linked sections; base-aware nav.
+// Every command and key shown here exists in the shipped `taskship` CLI
+// (verified against `taskship <cmd> --help`).
 import Base from '../layouts/Base.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
 
+// Greenfield path
 const install = 'pip install taskship';
 const scaffold = 'taskship init';
 const plan = 'taskship plan "your product brief"';
@@ -12,6 +17,21 @@ const review = 'taskship review';
 const dryRun = 'taskship sync --dry-run';
 const sync = 'taskship sync';
 const status = 'taskship status';
+
+// Existing-project path
+const onboard = 'taskship onboard PROJ';
+const knowledgeList = 'taskship knowledge';
+
+// Daily flow — the four door verbs
+const observeCmd = 'taskship observe "Checkout 500s under load spike" --impact "~5% of guest orders failing"';
+const testplanCmd = 'taskship testplan';
+const raiseStory = 'taskship raise "Coupon not applied to total" --story guest-flow --expected "Discount deducted" --actual "Full price charged"';
+const raiseEpic = 'taskship raise "Nav broken across checkout" --epic guest-checkout';
+const knowledgeShow = 'taskship knowledge guest-checkout';
+
+// Agent door
+const installMcp = 'pip install "taskship[mcp]"';
+const runMcp = 'taskship-mcp';
 
 const envSnippet = `export JIRA_BASE_URL="https://your-org.atlassian.net"
 export JIRA_EMAIL="you@your-org.com"
@@ -40,143 +60,393 @@ epics:
             subtype: perf
             title: Meet the latency budget
             metrics: { baseline: "480ms", target: "200ms" }`;
+
+const toc = [
+  { id: 'choose-path', label: 'Choose your path' },
+  { id: 'greenfield', label: 'Greenfield setup' },
+  { id: 'existing-project', label: 'Existing project — onboard from Jira' },
+  { id: 'daily-flow', label: 'Daily flow: the four doors' },
+  { id: 'agent-door', label: 'The agent door (MCP)' },
+];
 ---
 <Base
   title="Setup guide — TaskShip"
-  description="Set up a product in Jira with TaskShip: install from PyPI, connect your Jira site, define the plan as code, and sync it idempotently."
+  description="Set up TaskShip either way: scaffold a greenfield plan or onboard an existing Jira project, then run the four doors — plan, observe, testplan, raise — over one reviewable plan.yaml."
 >
   <Nav />
   <main>
     <section class="section guide">
       <div class="container guide__container">
         <span class="eyebrow">Setup guide</span>
-        <h1>From <code>pip install</code> to a planned product in Jira</h1>
+        <h1>From install to a whole-team plan in Jira</h1>
         <p class="guide__lead">
-          Eight steps, one terminal. You'll install TaskShip, connect it to your
-          Jira Cloud site, define your product plan as code, and sync it into a
-          Jira project — idempotently, so you can re-run it forever.
+          Two ways in — scaffold a fresh plan or onboard an existing Jira
+          project — then the daily flow where four doors write into one
+          reviewable <code>plan.yaml</code>, synced idempotently so re-runs
+          never duplicate.
         </p>
 
-        <ol class="guide__steps">
-          <li>
-            <h2>Install from PyPI</h2>
-            <p>
-              TaskShip needs Python 3.11+. Install the
-              <a href="https://pypi.org/project/taskship/">published package</a>:
-            </p>
-            <div class="cmd">
-              <span><span class="cmd__prompt">$</span>{install}</span>
-              <button data-copy={install} aria-label="Copy install command">Copy</button>
-            </div>
-          </li>
+        <nav class="guide__toc" aria-label="On this page">
+          <p class="guide__toc-title">On this page</p>
+          <ol>
+            {toc.map((t) => (
+              <li><a href={`#${t.id}`}>{t.label}</a></li>
+            ))}
+          </ol>
+        </nav>
 
-          <li>
-            <h2>Scaffold your project</h2>
-            <p>
-              In an empty directory (or your product repo), scaffold the working
-              files — a sample <code>plan.yaml</code>, a <code>templates/</code>
-              directory with the built-in task templates, and the
-              <code>.taskship/</code> state directory:
-            </p>
-            <div class="cmd">
-              <span><span class="cmd__prompt">$</span>{scaffold}</span>
-              <button data-copy={scaffold} aria-label="Copy init command">Copy</button>
+        <!-- Choose your path -->
+        <section class="guide__section" id="choose-path">
+          <h2>Choose your path</h2>
+          <p class="guide__section-lead">
+            Both paths land in the same place: one <code>plan.yaml</code> that
+            owns your structure and a Jira project kept in sync.
+          </p>
+          <div class="guide__paths">
+            <div class="card guide__path">
+              <span class="guide__path-tag">Greenfield</span>
+              <p>No project in Jira yet. Scaffold the files, author a plan from a
+                brief, then sync.</p>
+              <a href="#greenfield">Start fresh →</a>
             </div>
-          </li>
-
-          <li>
-            <h2>Connect your Jira site</h2>
-            <p>
-              Point the plan at your Jira project by setting the
-              <code>jira_project</code> key in <code>plan.yaml</code> to your
-              project key (the prefix in your issue IDs, e.g. <code>PROJ</code>).
-            </p>
-            <p>
-              Then create an API token at
-              <a href="https://id.atlassian.com/manage-profile/security/api-tokens">id.atlassian.com → Security → API tokens</a>
-              and export three environment variables:
-            </p>
-            <pre class="snippet"><code>{envSnippet}</code></pre>
-            <p class="guide__note">
-              <code>JIRA_SPRINT_FIELD</code> is optional — set it to your Jira
-              site's sprint custom field only if your plan assigns sprints.
-            </p>
-          </li>
-
-          <li>
-            <h2>Define the plan as code</h2>
-            <p>
-              Describe your product and let TaskShip decompose the brief into a
-              schema-validated <code>plan.yaml</code>:
-            </p>
-            <div class="cmd">
-              <span><span class="cmd__prompt">$</span>{plan}</span>
-              <button data-copy={plan} aria-label="Copy plan command">Copy</button>
+            <div class="card guide__path">
+              <span class="guide__path-tag">Already in Jira</span>
+              <p>A project already lives on the board. Onboard it once — TaskShip
+                adopts the existing issue keys so your first sync never
+                duplicates.</p>
+              <a href="#existing-project">Onboard an existing project →</a>
             </div>
-            <p>
-              Or edit <code>plan.yaml</code> by hand — it's the epic → story →
-              task tree, and it's the single source of truth:
-            </p>
-            <pre class="snippet"><code>{planSnippet}</code></pre>
-          </li>
+          </div>
+        </section>
 
-          <li>
-            <h2>Review the tree</h2>
-            <p>Render the epic → story → task hierarchy and sanity-check it:</p>
-            <div class="cmd">
-              <span><span class="cmd__prompt">$</span>{review}</span>
-              <button data-copy={review} aria-label="Copy review command">Copy</button>
-            </div>
-            <p class="guide__note">
-              Because the plan is a file, this is the moment for a normal code
-              review — diff it, comment on it, merge it.
-            </p>
-          </li>
+        <!-- Greenfield -->
+        <section class="guide__section" id="greenfield">
+          <h2>Greenfield setup</h2>
+          <p class="guide__section-lead">
+            Eight steps, one terminal: install, connect Jira, author the plan as
+            code, and sync it — idempotently, so you can re-run it forever.
+          </p>
 
-          <li>
-            <h2>Preview the sync</h2>
-            <p>
-              See exactly what would be created, updated, or skipped in Jira —
-              without writing anything:
-            </p>
-            <div class="cmd">
-              <span><span class="cmd__prompt">$</span>{dryRun}</span>
-              <button data-copy={dryRun} aria-label="Copy dry-run command">Copy</button>
-            </div>
-          </li>
+          <ol class="guide__steps">
+            <li>
+              <h3>Install from PyPI</h3>
+              <p>
+                TaskShip needs Python 3.11+. Install the
+                <a href="https://pypi.org/project/taskship/">published package</a>:
+              </p>
+              <div class="cmd">
+                <span><span class="cmd__prompt">$</span>{install}</span>
+                <button data-copy={install} aria-label="Copy install command">Copy</button>
+              </div>
+            </li>
 
-          <li>
-            <h2>Sync to Jira</h2>
-            <p>Reconcile the plan into your Jira project:</p>
-            <div class="cmd">
-              <span><span class="cmd__prompt">$</span>{sync}</span>
-              <button data-copy={sync} aria-label="Copy sync command">Copy</button>
-            </div>
-            <p class="guide__note">
-              Sync is <b>idempotent</b>: re-running it diffs the plan against the
-              board and updates what changed — it never duplicates an epic, story,
-              or task. Change the plan, sync again, repeat.
-            </p>
-          </li>
+            <li>
+              <h3>Scaffold your project</h3>
+              <p>
+                In an empty directory (or your product repo), scaffold the working
+                files — a sample <code>plan.yaml</code>, a <code>templates/</code>
+                directory with the built-in task templates, a
+                <code>knowledge/</code> directory with a <code>domain.md</code>
+                starter, and the <code>.taskship/</code> state directory:
+              </p>
+              <div class="cmd">
+                <span><span class="cmd__prompt">$</span>{scaffold}</span>
+                <button data-copy={scaffold} aria-label="Copy init command">Copy</button>
+              </div>
+            </li>
 
-          <li>
-            <h2>Verify</h2>
-            <p>Check the plan against what's live on the board:</p>
-            <div class="cmd">
-              <span><span class="cmd__prompt">$</span>{status}</span>
-              <button data-copy={status} aria-label="Copy status command">Copy</button>
-            </div>
-          </li>
-        </ol>
+            <li>
+              <h3>Connect your Jira site</h3>
+              <p>
+                Point the plan at your Jira project by setting the
+                <code>jira_project</code> key in <code>plan.yaml</code> to your
+                project key (the prefix in your issue IDs, e.g. <code>PROJ</code>).
+              </p>
+              <p>
+                Then create an API token at
+                <a href="https://id.atlassian.com/manage-profile/security/api-tokens">id.atlassian.com → Security → API tokens</a>
+                and export three environment variables:
+              </p>
+              <pre class="snippet"><code>{envSnippet}</code></pre>
+              <p class="guide__note">
+                <code>JIRA_SPRINT_FIELD</code> is optional — set it to your Jira
+                site's sprint custom field only if your plan assigns sprints.
+              </p>
+            </li>
+
+            <li>
+              <h3>Define the plan as code</h3>
+              <p>
+                Describe your product and let TaskShip decompose the brief into a
+                schema-validated <code>plan.yaml</code>:
+              </p>
+              <div class="cmd">
+                <span><span class="cmd__prompt">$</span>{plan}</span>
+                <button data-copy={plan} aria-label="Copy plan command">Copy</button>
+              </div>
+              <p>
+                Or edit <code>plan.yaml</code> by hand — it's the epic → story →
+                task tree, and it's the single source of truth:
+              </p>
+              <pre class="snippet"><code>{planSnippet}</code></pre>
+            </li>
+
+            <li>
+              <h3>Review the tree</h3>
+              <p>Render the epic → story → task hierarchy and sanity-check it:</p>
+              <div class="cmd">
+                <span><span class="cmd__prompt">$</span>{review}</span>
+                <button data-copy={review} aria-label="Copy review command">Copy</button>
+              </div>
+              <p class="guide__note">
+                Because the plan is a file, this is the moment for a normal code
+                review — diff it, comment on it, merge it.
+              </p>
+            </li>
+
+            <li>
+              <h3>Preview the sync</h3>
+              <p>
+                See exactly what would be created, updated, or skipped in Jira —
+                without writing anything:
+              </p>
+              <div class="cmd">
+                <span><span class="cmd__prompt">$</span>{dryRun}</span>
+                <button data-copy={dryRun} aria-label="Copy dry-run command">Copy</button>
+              </div>
+            </li>
+
+            <li>
+              <h3>Sync to Jira</h3>
+              <p>Reconcile the plan into your Jira project:</p>
+              <div class="cmd">
+                <span><span class="cmd__prompt">$</span>{sync}</span>
+                <button data-copy={sync} aria-label="Copy sync command">Copy</button>
+              </div>
+              <p class="guide__note">
+                Sync is <b>idempotent</b>: re-running it diffs the plan against the
+                board and updates what changed — it never duplicates an epic, story,
+                or task. Change the plan, sync again, repeat.
+              </p>
+            </li>
+
+            <li>
+              <h3>Verify</h3>
+              <p>Check the plan against what's live on the board:</p>
+              <div class="cmd">
+                <span><span class="cmd__prompt">$</span>{status}</span>
+                <button data-copy={status} aria-label="Copy status command">Copy</button>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <!-- Existing project -->
+        <section class="guide__section" id="existing-project">
+          <h2>Existing project — onboard from Jira</h2>
+          <p class="guide__section-lead">
+            Already have a project on the board? Skip <code>init</code> and
+            <code>plan</code>. Onboarding is a one-time bootstrap: it reads the
+            live epic → story → task hierarchy, writes it as
+            <code>plan.yaml</code>, seeds <code>knowledge/</code> files, and
+            <b>adopts the existing issue keys into sync state</b> — so the first
+            sync updates rather than creates.
+          </p>
+
+          <ol class="guide__steps">
+            <li>
+              <h3>Onboard the project</h3>
+              <p>
+                Set your <code>JIRA_*</code> environment variables (as in the
+                greenfield step), then import the project by key. This is
+                CLI-only and runs once:
+              </p>
+              <div class="cmd">
+                <span><span class="cmd__prompt">$</span>{onboard}</span>
+                <button data-copy={onboard} aria-label="Copy onboard command">Copy</button>
+              </div>
+              <p class="guide__note">
+                Onboarding refuses to run over an existing <code>plan.yaml</code>
+                (pass <code>--force</code> to replace one). It prints a summary —
+                counts imported, issues skipped, likely-noise candidates — and the
+                imported tree.
+              </p>
+            </li>
+
+            <li>
+              <h3>Review and prune</h3>
+              <p>
+                The imported <code>plan.yaml</code> and the seeded
+                <code>knowledge/&lt;epic-id&gt;.md</code> files are drafts. Read
+                them, prune the noise the summary flagged, and curate the domain
+                notes. List what was seeded:
+              </p>
+              <div class="cmd">
+                <span><span class="cmd__prompt">$</span>{knowledgeList}</span>
+                <button data-copy={knowledgeList} aria-label="Copy knowledge list command">Copy</button>
+              </div>
+              <p class="guide__note">
+                Knowledge files are plain markdown — one per epic, plus an
+                optional <code>knowledge/domain.md</code> glossary. Seeding is
+                deterministic; it never overwrites a file you've edited.
+              </p>
+            </li>
+
+            <li>
+              <h3>Preview — expect zero creates</h3>
+              <p>
+                Because onboarding adopted every issue key, a dry-run right after
+                onboarding reports <b>zero creates</b> — every imported node
+                resolves to update or skip:
+              </p>
+              <div class="cmd">
+                <span><span class="cmd__prompt">$</span>{dryRun}</span>
+                <button data-copy={dryRun} aria-label="Copy dry-run command">Copy</button>
+              </div>
+              <p class="guide__note">
+                From here on, <code>plan.yaml</code> is canonical. Jira edits that
+                drift from the plan surface as sync conflicts — TaskShip never
+                merges them back silently.
+              </p>
+            </li>
+          </ol>
+        </section>
+
+        <!-- Daily flow: the four doors -->
+        <section class="guide__section" id="daily-flow">
+          <h2>Daily flow: the four doors</h2>
+          <p class="guide__section-lead">
+            One plan, four ways in. The product door is <code>plan</code> above;
+            the other three doors each append typed work to the same
+            <code>plan.yaml</code>. They're all plan-only — nothing reaches Jira
+            until the next <code>taskship sync</code>.
+          </p>
+
+          <div class="guide__doors">
+            <article class="card guide__door">
+              <span class="guide__door-tag">Ops door · <code>observe</code></span>
+              <p>
+                On-call captures a production observation into the ops intake
+                lane. It lands <b>unprioritized</b> and carries a triage label, so
+                <code>taskship board</code> surfaces it in a triage lane for the
+                ceremony — TaskShip never writes Jira's priority field.
+              </p>
+              <div class="cmd">
+                <span><span class="cmd__prompt">$</span>{observeCmd}</span>
+                <button data-copy={observeCmd} aria-label="Copy observe command">Copy</button>
+              </div>
+              <p class="guide__note">
+                <code>--impact</code> is the definition-of-ready field;
+                <code>--evidence</code> and <code>--action</code> are optional.
+                Each run appends a fresh observation — observations are events,
+                not idempotent nodes.
+              </p>
+            </article>
+
+            <article class="card guide__door">
+              <span class="guide__door-tag">Test door · <code>testplan</code></span>
+              <p>
+                Derive one end-to-end regression test-case per non-ops story, each
+                with a deterministic id from its story. Re-running is safe: it
+                never duplicates and never rewrites a test case you've edited.
+              </p>
+              <div class="cmd">
+                <span><span class="cmd__prompt">$</span>{testplanCmd}</span>
+                <button data-copy={testplanCmd} aria-label="Copy testplan command">Copy</button>
+              </div>
+              <p class="guide__note">
+                Add or rename a story, run it again, and only the new story gets a
+                test case. The test-case tickets are planning artifacts for your
+                regression suite — TaskShip does not execute tests.
+              </p>
+            </article>
+
+            <article class="card guide__door">
+              <span class="guide__door-tag">UAT door · <code>raise</code></span>
+              <p>
+                File an acceptance defect against the story under test. It parks
+                <b>under that story</b> with a plain <code>bug</code> label — a
+                Task, not a Jira <code>Bug</code> issue type — so the fix lives
+                where the work lives.
+              </p>
+              <div class="cmd">
+                <span><span class="cmd__prompt">$</span>{raiseStory}</span>
+                <button data-copy={raiseStory} aria-label="Copy raise --story command">Copy</button>
+              </div>
+              <p>
+                A cross-story finding? Use <code>--epic</code> instead — it parks
+                in that epic's <code>&lt;epic-id&gt;-uat</code> fallback story
+                (exactly one of <code>--story</code> / <code>--epic</code> is
+                required):
+              </p>
+              <div class="cmd">
+                <span><span class="cmd__prompt">$</span>{raiseEpic}</span>
+                <button data-copy={raiseEpic} aria-label="Copy raise --epic command">Copy</button>
+              </div>
+              <p class="guide__note">
+                <code>--expected</code> and <code>--actual</code> are the
+                definition-of-ready fields; <code>--steps</code>,
+                <code>--severity</code>, <code>--environment</code>, and
+                <code>--test</code> (naming the failed test case) are optional.
+              </p>
+            </article>
+
+            <article class="card guide__door">
+              <span class="guide__door-tag">Knowledge · <code>knowledge</code></span>
+              <p>
+                Curated domain context lives as plain markdown under
+                <code>knowledge/</code>. List the files, or print one epic's
+                knowledge (combined with <code>domain.md</code>):
+              </p>
+              <div class="cmd">
+                <span><span class="cmd__prompt">$</span>{knowledgeShow}</span>
+                <button data-copy={knowledgeShow} aria-label="Copy knowledge show command">Copy</button>
+              </div>
+              <p class="guide__note">
+                Absent knowledge is never an error — every consumer degrades to
+                plan-and-templates. There's no index and no embeddings; the agent
+                just reads the files.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <!-- Agent door -->
+        <section class="guide__section" id="agent-door">
+          <h2>The agent door (MCP)</h2>
+          <p class="guide__section-lead">
+            Everything above is CLI. The MCP server, <code>taskship-mcp</code>, is
+            the <b>agent front door over the same engine</b> — an agent can
+            observe, derive a test plan, raise a UAT issue, and read knowledge
+            conversationally, through the exact same session functions the CLI
+            calls. Install the optional extra and run it:
+          </p>
+          <div class="cmd">
+            <span><span class="cmd__prompt">$</span>{installMcp}</span>
+            <button data-copy={installMcp} aria-label="Copy MCP install command">Copy</button>
+          </div>
+          <div class="cmd">
+            <span><span class="cmd__prompt">$</span>{runMcp}</span>
+            <button data-copy={runMcp} aria-label="Copy MCP run command">Copy</button>
+          </div>
+          <p class="guide__note">
+            TaskShip is deterministic rails, not the intelligence: it makes no LLM
+            calls, ships no scheduler or daemon, and hosts nothing. Convening the
+            ceremony (cron, scheduling) and presence (a terminal or chat channel)
+            belong to the agent harness that drives TaskShip's tools — an agent is
+            never <em>required</em> to operate it.
+          </p>
+        </section>
 
         <div class="guide__next card">
           <h2>Where to go from here</h2>
           <p>
             Day-to-day, the same plan drives <code>taskship board</code> (a Kanban
-            view by live Jira status), <code>taskship standup</code> (what changed
-            since the last run, per assignee), <code>taskship assign</code>
-            (reviewable assignee changes in the plan), and
-            <code>taskship report</code> (an executive HTML status report).
+            view by live Jira status, with the ops triage lane up top),
+            <code>taskship standup</code> (what changed since the last run, per
+            assignee), <code>taskship assign</code> (reviewable assignee changes in
+            the plan), and <code>taskship report</code> (an executive HTML status
+            report).
           </p>
         </div>
       </div>
@@ -186,15 +456,54 @@ epics:
 </Base>
 
 <style>
-  .guide__container { max-width: 760px; }
+  .guide__container { max-width: 780px; }
   .guide h1 { margin-top: 18px; }
-  .guide h1 code { font-family: var(--font-mono); font-size: 0.85em; color: var(--brand-ink); }
+  .guide h1 code, .guide h2 code, .guide h3 code { font-family: var(--font-mono); font-size: 0.85em; color: var(--brand-ink); }
   .guide__lead { color: var(--ink-muted); font-size: 1.12rem; margin-top: 18px; }
+
+  /* In-page table of contents */
+  .guide__toc {
+    margin: 36px 0 8px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+  }
+  .guide__toc-title {
+    font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-faint); margin-bottom: 12px;
+  }
+  .guide__toc ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--ink-muted); }
+  .guide__toc a { color: var(--brand-ink); }
+  .guide__toc a:hover { text-decoration: underline; }
+
+  .guide__section { margin-top: 64px; scroll-margin-top: 84px; }
+  .guide__section > h2 { font-size: 1.7rem; }
+  .guide__section-lead { color: var(--ink-muted); margin-top: 12px; font-size: 1.02rem; }
+  .guide__section code, .guide__next code {
+    font-family: var(--font-mono); font-size: 0.85em; color: var(--brand-ink);
+    background: var(--brand-soft); padding: 1px 5px; border-radius: 5px;
+  }
+
+  /* Choose-your-path + door cards */
+  .guide__paths, .guide__doors { display: grid; gap: 16px; margin-top: 22px; }
+  .guide__path { display: flex; flex-direction: column; gap: 8px; }
+  .guide__path-tag, .guide__door-tag {
+    align-self: flex-start; font-family: var(--font-mono); font-size: 0.72rem;
+    font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--brand-ink); background: var(--brand-soft);
+    border: 1px solid #dcdcf7; border-radius: 999px; padding: 4px 11px;
+  }
+  .guide__path p { color: var(--ink-muted); font-size: 0.96rem; }
+  .guide__path a { color: var(--brand-ink); font-weight: 600; text-decoration: underline; }
+  .guide__door p { color: var(--ink-muted); font-size: 0.96rem; margin-top: 12px; }
+  .guide__door .cmd { margin-top: 14px; }
+  @media (min-width: 720px) { .guide__paths { grid-template-columns: 1fr 1fr; } }
 
   .guide__steps {
     list-style: none;
     counter-reset: step;
-    margin: 48px 0 0;
+    margin: 32px 0 0;
     padding: 0;
     display: grid;
     gap: 44px;
@@ -219,15 +528,11 @@ epics:
     font-weight: 700;
     font-size: 0.95rem;
   }
-  .guide__steps h2 { font-size: 1.3rem; }
+  .guide__steps h3 { font-size: 1.2rem; }
   .guide__steps p { color: var(--ink-muted); margin-top: 10px; }
-  .guide__steps p a { color: var(--brand-ink); text-decoration: underline; }
-  .guide__steps .cmd { margin-top: 14px; }
-  .guide__steps .cmd span { white-space: nowrap; overflow-x: auto; }
-  .guide__steps code {
-    font-family: var(--font-mono); font-size: 0.85em; color: var(--brand-ink);
-    background: var(--brand-soft); padding: 1px 5px; border-radius: 5px;
-  }
+  .guide__steps p a, .guide__section > p a { color: var(--brand-ink); text-decoration: underline; }
+  .guide__steps .cmd, .guide__door .cmd, .guide__section > .cmd { margin-top: 14px; }
+  .cmd span { white-space: nowrap; overflow-x: auto; }
   .guide__note { font-size: 0.95rem; color: var(--ink-faint); }
 
   .snippet {
@@ -245,6 +550,6 @@ epics:
   }
   .snippet code { background: none; color: inherit; padding: 0; font-size: inherit; }
 
-  .guide__next { margin-top: 56px; }
+  .guide__next { margin-top: 64px; }
   .guide__next p { color: var(--ink-muted); margin-top: 10px; }
 </style>

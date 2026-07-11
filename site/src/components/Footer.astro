@@ -1,4 +1,7 @@
 ---
+// Base-aware anchors so the footer nav resolves from /guide as well as the
+// landing page (the site serves under /taskship on GitHub Pages).
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 <footer class="footer">
   <div class="container footer__inner">
@@ -8,9 +11,11 @@
       <span class="footer__tag">Plan-as-code for Jira</span>
     </div>
     <nav class="footer__links" aria-label="Footer">
-      <a href="#problem">Why</a>
-      <a href="#how">How it works</a>
-      <a href="#features">Features</a>
+      <a href={`${base}/#problem`}>Why</a>
+      <a href={`${base}/#doors`}>Four doors</a>
+      <a href={`${base}/#how`}>How it works</a>
+      <a href={`${base}/#features`}>Features</a>
+      <a href={`${base}/guide/`}>Setup guide</a>
       <a href="https://github.com/selvakumarEsra/taskship">GitHub</a>
       <a href="https://pypi.org/project/taskship/">PyPI</a>
     </nav>

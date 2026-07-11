@@ -213,6 +213,8 @@ knowledge files (ONBOARD-DOC, KNOW-DOC). The landing page must sell that
 whole-team story without overclaiming beyond the shipped CLI.
 
 implementations:
+  - site/src/components/Doors.astro
+  - site/src/components/HowItWorks.astro
 
 ## Acceptance
 <!-- id: REQ-SITE-009.A1 -->
@@ -239,6 +241,7 @@ further. The guide must carry a reader from either entry path through the
 whole-team daily flow.
 
 implementations:
+  - site/src/pages/guide.astro
 
 ## Acceptance
 <!-- id: REQ-SITE-010.A1 -->
@@ -264,6 +267,8 @@ The guide is now multiple flows (greenfield, existing-project, daily doors);
 a linear scroll no longer serves a reader who arrived for one of them.
 
 implementations:
+  - site/src/pages/guide.astro
+  - site/src/components/Nav.astro
 
 ## Acceptance
 <!-- id: REQ-SITE-011.A1 -->

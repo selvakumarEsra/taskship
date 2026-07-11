@@ -16,6 +16,19 @@ const steps = [
       <p>Five commands, one loop. Everything runs over the same engine whether you drive it from the CLI or an agent drives it over MCP.</p>
     </div>
 
+    <div class="how__paths">
+      <div class="how__path card">
+        <span class="how__path-tag">Start fresh</span>
+        <p>Greenfield? Turn a brief into a plan.yaml, review it, and sync.</p>
+        <code>taskship plan "…"</code>
+      </div>
+      <div class="how__path card">
+        <span class="how__path-tag">Already in Jira?</span>
+        <p>Onboard an existing project — it adopts the live issue keys, so your first sync updates rather than duplicates.</p>
+        <code>taskship onboard &lt;KEY&gt;</code>
+      </div>
+    </div>
+
     <div class="how">
       <ol class="how__steps">
         {steps.map((s) => (
@@ -62,6 +75,22 @@ const steps = [
 </section>
 
 <style>
+  .how__paths { display: grid; gap: 16px; margin-bottom: 44px; }
+  .how__path { display: flex; flex-direction: column; gap: 8px; }
+  .how__path-tag {
+    align-self: flex-start; font-family: var(--font-mono); font-size: 0.72rem;
+    font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--brand-ink); background: var(--brand-soft);
+    border: 1px solid #dcdcf7; border-radius: 999px; padding: 4px 10px;
+  }
+  .how__path p { color: var(--ink-muted); font-size: 0.96rem; }
+  .how__path code {
+    align-self: flex-start; font-family: var(--font-mono); font-size: 0.82rem;
+    color: var(--brand-ink); background: var(--bg-soft);
+    border: 1px solid var(--border-strong); padding: 3px 9px; border-radius: 7px;
+  }
+  @media (min-width: 720px) { .how__paths { grid-template-columns: 1fr 1fr; } }
+
   .how { display: grid; gap: 40px; align-items: start; }
   .how__steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 26px; }
   .how__step { display: grid; grid-template-columns: 40px 1fr; gap: 16px; }
