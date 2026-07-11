@@ -156,7 +156,7 @@ the site MUST use the real published package name, and the site MUST link to
 the PyPI project page so a reader can verify the release.
 
 implementations:
-  - site/src/components/CTA.astro:CTA
+  - site/src/components/CTA.astro
 
 ## Acceptance
 <!-- id: REQ-SITE-007.A1 -->
@@ -179,7 +179,7 @@ The guide lives on its own page (`/guide`) rather than a landing-page section,
 so the landing page keeps its one-scroll pitch.
 
 implementations:
-  - site/src/pages/guide.astro:guide
+  - site/src/pages/guide.astro
 
 ## Acceptance
 <!-- id: REQ-SITE-008.A1 -->
