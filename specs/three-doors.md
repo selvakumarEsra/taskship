@@ -1,13 +1,13 @@
 ---
 id: DOORS-DOC
-title: Three doors — ops observations, product features, regression test plans
+title: Four doors — ops observations, product features, regression test plans, UAT issues
 owner: "@selvakumar"
 priority: high
-version: 1
+version: 2
 ---
 
 <!-- id: DOORS-DOC -->
-# Three doors into the plan
+# Four doors into the plan
 
 TaskShip today serves one persona: the technical PM planning product features
 (brief → `plan.yaml` → Jira). This document adds two more personas as first-class
@@ -23,18 +23,28 @@ work and the existing sync/ceremony machinery serves everyone:
 3. **Test door** — the test manager derives one end-to-end regression test-case
    task per story, idempotently, so every new or renamed story automatically
    gets a test-case ticket and re-runs never duplicate.
+4. **UAT door** — anyone acceptance-testing product-door work raises defects
+   found *before* release as typed tasks parked **under the story they were
+   found against** (an epic-level fallback story catches cross-story
+   findings). UAT issues are not triaged like observations — they block their
+   story's acceptance, so they carry a `bug` label and live where the fix work
+   lives, and the epic's rollup stays honest while they're open.
 
 Design decisions (settled): one `plan.yaml` with typed lanes (not one plan per
 door); prioritization stays in Jira — TaskShip marks observations with a triage
 label and surfaces them in ceremony views but never writes Jira priority;
 `taskship observe` is plan-only (observations reach Jira on the next `sync`,
 preserving the reviewable-plan contract); `taskship testplan` covers all
-non-ops stories with idempotent derived ids.
+non-ops stories with idempotent derived ids; UAT issues park under their story
+with a plain `bug` label rather than a Jira `Bug` issue type, and get **no**
+triage label — their priority is implied by the story they block.
 
-Non-goals: no Jira `Bug` issue type (observations are Tasks, consistent with
-the Epic/Story/Task mapping in `payload.py`); no priority field in the plan
-schema; no interactive triage verb; no automatic test execution — the test-case
-tickets are planning artifacts for the regression suite, not test runners.
+Non-goals: no Jira `Bug` issue type (observations and UAT issues are Tasks,
+consistent with the Epic/Story/Task mapping in `payload.py`); no priority field
+in the plan schema; no interactive triage verb; no automatic test execution —
+the test-case tickets are planning artifacts for the regression suite, not test
+runners; no UAT issue lifecycle tracking beyond Jira's own status (raised →
+fixed → retested is the board's job).
 
 <!-- id: REQ-DOORS-001 -->
 ## An `ops-observation` task template MUST ship as a built-in
@@ -185,3 +195,80 @@ implementations:
 <!-- id: REQ-DOORS-006.A2 -->
 - Both tools return the affected node ids so the agent can report what was
   added or skipped.
+
+<!-- id: REQ-DOORS-007 -->
+## A `uat-issue` task template MUST ship as a built-in
+
+The UAT door needs a typed shape for acceptance-test defects: a UAT issue that
+doesn't state expected-versus-actual behaviour is not actionable by the story's
+developer.
+
+implementations:
+  - taskship/builtin_templates/uat-issue.yaml
+
+## Acceptance
+<!-- id: REQ-DOORS-007.A1 -->
+- `taskship/builtin_templates/uat-issue.yaml` exists with sections for expected
+  behaviour, actual behaviour, steps to reproduce, severity, and environment;
+  `expected` and `actual` are `required` fields.
+<!-- id: REQ-DOORS-007.A2 -->
+- Rendering a `uat-issue` task missing `expected` or `actual` raises
+  `TemplateError` naming the missing field.
+<!-- id: REQ-DOORS-007.A3 -->
+- A rendered UAT issue carries the labels `taskship:type:uat-issue` and `bug`
+  (the plain label Jira board filters key on), and does NOT carry
+  `taskship:triage` — UAT issues block their story, they are not ceremony
+  triage items.
+<!-- id: REQ-DOORS-007.A4 -->
+- A team can fork the template into their `templates/` directory and the fork
+  overrides the built-in.
+
+<!-- id: REQ-DOORS-008 -->
+## `taskship raise` MUST park a UAT issue under the story it was found against
+
+Whoever runs UAT needs a one-command way to file a defect against the story
+under acceptance, keeping the defect co-located with the work it blocks. Like
+`observe`, `raise` is an event: plan-only, append-only, never idempotent.
+
+implementations:
+  - taskship/cli.py:raise_issue
+  - taskship/session.py:TaskShipSession.raise_issue
+
+## Acceptance
+<!-- id: REQ-DOORS-008.A1 -->
+- `taskship raise "<title>" --story <story-id>` appends one `uat-issue` task
+  under that story; optional flags supply the template fields (e.g.
+  `--expected`, `--actual`, `--steps`, `--severity`).
+<!-- id: REQ-DOORS-008.A2 -->
+- The appended task carries a `taskship:story:<story-id>` label naming the
+  story it was raised against; when `--test <test-case-id>` names the failed
+  regression test case, a `taskship:test:<test-case-id>` label is added too.
+<!-- id: REQ-DOORS-008.A3 -->
+- `taskship raise "<title>" --epic <epic-id>` (a cross-story finding) parks the
+  issue in that epic's `<epic-id>-uat` fallback story, creating the story if
+  absent without modifying any existing node; exactly one of `--story` /
+  `--epic` must be given.
+<!-- id: REQ-DOORS-008.A4 -->
+- An unknown `--story` or `--epic` id fails with an error naming the id;
+  `plan.yaml` is left untouched.
+<!-- id: REQ-DOORS-008.A5 -->
+- The command is plan-only (no Jira calls, no `JIRA_*` env needed); raising the
+  same title twice appends two distinct tasks with unique ids; the resulting
+  plan validates against the schema.
+
+<!-- id: REQ-DOORS-009 -->
+## The MCP front door MUST expose `raise` with identical behaviour
+
+Two front doors over one engine: an agent assisting a UAT session files the
+defect the same way the CLI does.
+
+implementations:
+  - taskship/mcp_server.py:raise_issue
+
+## Acceptance
+<!-- id: REQ-DOORS-009.A1 -->
+- The MCP server exposes a raise tool with behaviour identical to the CLI verb
+  (same parking rules, labels, event semantics), implemented over the same
+  session engine method.
+<!-- id: REQ-DOORS-009.A2 -->
+- The tool returns the new task's id and the story it was parked under.
